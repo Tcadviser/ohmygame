@@ -171,7 +171,7 @@ without saving or reloading catalogs. **Next**, or navigating to the start step,
 saves the selected model once. Navigation stays disabled during that save;
 **Retry** retries a failed save without repeating authorization or enabling the
 agent again. Provider listing and conversation models load independently, so a
-failed or slow provider list does not block an available CLI model.
+failed or slow provider list does not block an available plugin-agent model.
 
 An installation with no preference but existing projects or a configured
 language provider is marked completed once. Media credentials alone do not
@@ -188,8 +188,8 @@ list. Step navigation is disabled while saving. The welcome is a short launch
 animation (the app mark and a dot grid) with **Get started**; it asks
 nothing. Language and appearance follow the
 system until changed in Settings, and reduced motion shows it still. The AI
-step shows OhMyGame and the Claude Code, Codex, and OpenCode CLIs in one row,
-with the chosen one's setup (OhMyGame's model providers by default) below it;
+step shows OhMyGame and any plugin agents in one row, with the chosen
+one's setup (OhMyGame's model providers by default) below it;
 **Next** stays in view while the setup scrolls. The connection screen reuses
 the daemon's provider authentication flow and custom-provider form; it does
 not require an OhMyGame cloud account. The add button beside provider search

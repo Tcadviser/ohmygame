@@ -1,17 +1,11 @@
 import type { AgentUsageLimit } from "./contracts.js";
 /**
- * Coding agents: native CLIs (Claude Code, Codex, OpenCode) that run a
- * conversation's agent loop in place of OhMyGame's built-in Pi agent. A
- * conversation uses one when its model is one of the agent's models; the
- * model's provider is the agent's ID, so a model reference names both.
+ * A conversation runs on Pi. A plugin can still add its own coding agent
+ * (`contributes.agents`); the model's provider is that agent's ID.
+ * Claude Code, Codex, and OpenCode are not built in.
  */
 
-// The suffix keeps these apart from model providers of the same name: Pi itself has an `opencode` provider.
-export const AGENT_RUNTIME_IDS = [
-  "claude-code-cli",
-  "codex-cli",
-  "opencode-cli",
-] as const;
+export const AGENT_RUNTIME_IDS = [] as const;
 export type BuiltInAgentRuntimeId = (typeof AGENT_RUNTIME_IDS)[number];
 /**
  * A coding agent a plugin adds (`contributes.agents`), spoken to over the
@@ -34,7 +28,7 @@ export function isBuiltInAgentRuntimeId(value: unknown): value is BuiltInAgentRu
   return typeof value === "string" && (AGENT_RUNTIME_IDS as readonly string[]).includes(value);
 }
 
-export const ACCOUNT_RUNTIME_IDS = ["claude-code-cli", "codex-cli"] as const;
+export const ACCOUNT_RUNTIME_IDS = [] as const;
 export type AccountRuntimeId = (typeof ACCOUNT_RUNTIME_IDS)[number];
 export type AccountProfileIds = Partial<Record<AccountRuntimeId, string>>;
 
@@ -91,37 +85,21 @@ export interface AgentRuntimeDiagnostic {
 }
 
 /**
- * How freely a coding agent works, in each CLI's own permission modes: those
- * that suit working in a project, from asking most to asking nothing. What a
- * mode asks reaches the person as an approval card. Planning uses the CLI's
- * read-only mode whatever is chosen, so read-only modes are not listed.
- * Claude Code's `default` is the mode its newer releases call `manual`;
- * OpenCode has no modes, so `default` follows the person's OpenCode rules
- * and `allow` allows everything.
+ * How freely a plugin coding agent works. `default` follows the agent's own
+ * rules. `allow` asks nothing, as Pi does. Planning uses the agent's
+ * read-only mode whatever is chosen.
  */
-export const AGENT_PERMISSION_MODES = {
-  "claude-code-cli": ["default", "acceptEdits", "auto", "bypassPermissions"],
-  "codex-cli": [":workspace", ":danger-full-access"],
-  "opencode-cli": ["default", "allow"],
-} as const satisfies Record<BuiltInAgentRuntimeId, readonly string[]>;
 /** An agent a plugin adds asks as its own rules say (`default`), or is allowed everything. */
 export const PLUGIN_AGENT_PERMISSION_MODES = ["default", "allow"] as const;
-export type AgentPermissionMode =
-  (typeof AGENT_PERMISSION_MODES)[BuiltInAgentRuntimeId][number];
+export type AgentPermissionMode = (typeof PLUGIN_AGENT_PERMISSION_MODES)[number];
 
-export function agentPermissionModes(runtime: AgentRuntimeId): readonly AgentPermissionMode[] {
-  return isBuiltInAgentRuntimeId(runtime) ? AGENT_PERMISSION_MODES[runtime] : PLUGIN_AGENT_PERMISSION_MODES;
+export function agentPermissionModes(_runtime: AgentRuntimeId): readonly AgentPermissionMode[] {
+  return PLUGIN_AGENT_PERMISSION_MODES;
 }
 
-/** Each agent's mode that asks nothing, as OhMyGame's own agent does. */
-export const FULL_ACCESS_PERMISSION_MODES = {
-  "claude-code-cli": "bypassPermissions",
-  "codex-cli": ":danger-full-access",
-  "opencode-cli": "allow",
-} as const satisfies Record<BuiltInAgentRuntimeId, AgentPermissionMode>;
-
-export function fullAccessPermissionMode(runtime: AgentRuntimeId): AgentPermissionMode {
-  return isBuiltInAgentRuntimeId(runtime) ? FULL_ACCESS_PERMISSION_MODES[runtime] : "allow";
+/** The mode that asks nothing, as Pi does. */
+export function fullAccessPermissionMode(_runtime: AgentRuntimeId): AgentPermissionMode {
+  return "allow";
 }
 
 export function isAgentPermissionMode(

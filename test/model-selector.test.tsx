@@ -131,7 +131,7 @@ describe("ModelSelector interaction", () => {
   });
 
   it("selects an arbitrary native variant without changing Pi reasoning", async () => {
-    const native: AgentModel = { ...model, provider: "opencode-cli", reasoningLevels: [], nativeReasoningLevels: ["low", "balanced-custom"] };
+    const native: AgentModel = { ...model, provider: "agent.acme.demo.helper", reasoningLevels: [], nativeReasoningLevels: ["low", "balanced-custom"] };
     const onNativeReasoningChange = vi.fn(), onReasoningChange = vi.fn();
     await act(async () => root.render(<ModelSelector models={[native]} value={native} nativeReasoningLevel="low" onChange={() => {}} onReasoningChange={onReasoningChange} onNativeReasoningChange={onNativeReasoningChange} />));
     await act(async () => container.querySelector<HTMLButtonElement>("button")!.click());

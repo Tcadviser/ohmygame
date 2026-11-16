@@ -61,7 +61,7 @@ async function render(
 describe("composer publish command", () => {
   it("opens publishing from the menu while retaining coding agent quota information", async () => {
     const props = await render({
-      model: { provider: "codex-cli", id: "test" },
+      model: { provider: "agent.acme.demo.helper", id: "test" },
       onContextUsage: vi.fn(async () => ({
         tokens: null,
         contextWindow: 200_000,

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import type { AccountRuntimeId, AgentAccountProfileStatus } from "../shared/agent-runtimes.js";
+import type { AgentAccountProfileStatus } from "../shared/agent-runtimes.js";
 import type { AgentUsageLimit } from "../shared/contracts.js";
 import { currentUsage, Meter, usageLevel, usageResetLabel, usageWindowLabel } from "./agent-usage.js";
 import { Check, ChevronDown, RefreshCw, Settings, UserRound } from "./icons.js";
@@ -48,13 +48,12 @@ function UsageWindows({ limits, now }: { limits: readonly AgentUsageLimit[]; now
 }
 
 /**
- * The chat header's account menu for Claude Code and Codex: every account
- * with a ring per quota window and its shortest window's share. Hovering or
- * focusing an account shows its windows and when they reset beside the menu,
- * so the person can move to one with room left.
+ * The chat header's account menu: every account with a ring per quota window
+ * and its shortest window's share. Hovering or focusing an account shows its
+ * windows and when they reset beside the menu.
  */
 export function AgentAccountMenu({ runtime, profiles, value, disabled, onChange, onRefresh }: {
-  runtime: AccountRuntimeId;
+  runtime: string;
   profiles: readonly AgentAccountProfileStatus[];
   value: string;
   disabled: boolean;
@@ -85,8 +84,7 @@ export function AgentAccountMenu({ runtime, profiles, value, disabled, onChange,
 
   const selected = profiles.find((profile) => profile.id === value) ?? profiles[0];
   if (!selected) return null;
-  const agent = runtime === "codex-cli" ? "Codex" : "Claude Code";
-  const label = t("codingAgents.chatProfile", { name: agent });
+  const label = t("codingAgents.chatProfile", { name: runtime });
   const limitsOf = (profile: AgentAccountProfileStatus) => (profile.limits ?? []).map((limit) => currentUsage(limit, now));
   const first = shortest(limitsOf(selected));
   const firstPercent = first ? Math.round(first.usedPercent) : undefined;

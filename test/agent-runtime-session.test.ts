@@ -98,7 +98,7 @@ function setup(
   const createSession = async () => {
     await options.beforeCreate?.();
     return new NativeCodingSession({
-      runtime: "claude-code-cli",
+      runtime: "agent.acme.demo.one",
       model: "sonnet",
       sessionManager,
       createDriver: (resume) => {
@@ -164,7 +164,7 @@ describe("coding agent sessions", () => {
     try {
       const run = manager.prompt(project, conversation, "work");
       await expect.poll(() => drivers[0]?.inputs.length).toBe(1);
-      manager.releaseRuntimeSessions("claude-code-cli");
+      manager.releaseRuntimeSessions("agent.acme.demo.one");
       expect(drivers[0]!.disposed).toBe(false);
       finish();
       await run.result;
@@ -172,7 +172,7 @@ describe("coding agent sessions", () => {
       await manager.prompt(project, conversation, "continue").result;
       expect(drivers).toHaveLength(2);
       expect(drivers[1]!.resume).toBe("native-1");
-      manager.releaseRuntimeSessions("claude-code-cli");
+      manager.releaseRuntimeSessions("agent.acme.demo.one");
       expect(drivers[1]!.disposed).toBe(true);
     } finally {
       finish();
@@ -198,7 +198,7 @@ describe("coding agent sessions", () => {
     try {
       const run = manager.prompt(project, conversation, "work");
       await expect.poll(() => creating).toBe(true);
-      manager.releaseRuntimeSessions("claude-code-cli");
+      manager.releaseRuntimeSessions("agent.acme.demo.one");
       finish();
       await run.result;
       expect(drivers).toHaveLength(2);
@@ -218,7 +218,7 @@ describe("coding agent sessions", () => {
   ) {
     const drivers: ScriptedDriver[] = [];
     const session = new NativeCodingSession({
-      runtime: "claude-code-cli",
+      runtime: "agent.acme.demo.one",
       model: "sonnet",
       sessionManager,
       toolNames: [],
@@ -233,7 +233,7 @@ describe("coding agent sessions", () => {
     return { session, sessionManager, drivers };
   }
 
-  it.each(["claude-code-cli", "codex-cli"] as const)("only resumes a %s native session for the same account configuration", (runtime) => {
+  it.each(["agent.acme.demo.one", "agent.acme.demo.two"] as const)("only resumes a %s native session for the same account configuration", (runtime) => {
     const manager = SessionManager.inMemory("/tmp/profile-test");
     manager.appendCustomEntry(NATIVE_SESSION_ENTRY, { version: 2, runtime, state: "ready", sessionId: "thread-a", profileId: "personal" });
     expect(latestNativeSession(manager.getBranch(), runtime, "personal")?.sessionId).toBe("thread-a");
@@ -244,7 +244,7 @@ describe("coding agent sessions", () => {
   it("refuses to compact a native context that has not received the chat yet", async () => {
     const sm = SessionManager.inMemory("/tmp/project-1");
     sm.appendMessage({ role: "user", content: "keep the original requirement", timestamp: 1 });
-    sm.appendCustomEntry(NATIVE_SESSION_ENTRY, { version: 2, runtime: "claude-code-cli", state: "ready", sessionId: "thread-a", profileId: "personal" });
+    sm.appendCustomEntry(NATIVE_SESSION_ENTRY, { version: 2, runtime: "agent.acme.demo.one", state: "ready", sessionId: "thread-a", profileId: "personal" });
     const { session, drivers } = fixture([
       async (_input, sink) => {
         sink.nativeSession("thread-b");
@@ -254,7 +254,7 @@ describe("coding agent sessions", () => {
     ], sm, { profileId: "work" });
     await expect(session.compact()).rejects.toThrow("Send a message first");
     expect(drivers.every((driver) => driver.compactions === 0)).toBe(true);
-    expect(latestNativeSession(sm.getBranch(), "claude-code-cli", "work")).toBeUndefined();
+    expect(latestNativeSession(sm.getBranch(), "agent.acme.demo.one", "work")).toBeUndefined();
     // The next message carries the chat to this account; compacting it is then allowed.
     await session.prompt("continue");
     expect(drivers.at(-1)!.inputs[0]!.text).toContain("keep the original requirement");
@@ -311,7 +311,7 @@ describe("coding agent sessions", () => {
     expect(drivers[0]!.disposed).toBe(true);
     expect(drivers[1]!.resume).toBeUndefined();
     expect(
-      latestNativeSession(sessionManager.getBranch(), "claude-code-cli"),
+      latestNativeSession(sessionManager.getBranch(), "agent.acme.demo.one"),
     ).toBeUndefined();
     session.dispose();
     const restarted = fixture([], sessionManager);
@@ -330,7 +330,7 @@ describe("coding agent sessions", () => {
     sm.appendCustomEntry(NATIVE_SESSION_ENTRY, {
       version: 2,
       state: "ready",
-      runtime: "claude-code-cli",
+      runtime: "agent.acme.demo.one",
       sessionId: "native-1",
     });
     sm.appendModelChange("pi-provider", "pi-model");
@@ -339,7 +339,7 @@ describe("coding agent sessions", () => {
       content: "new requirement handled by Pi",
       timestamp: 2,
     });
-    sm.appendModelChange("claude-code-cli", "sonnet");
+    sm.appendModelChange("agent.acme.demo.one", "sonnet");
     const { session, drivers } = fixture([], sm);
     await session.prompt("continue");
     expect(drivers[0]!.resume).toBeUndefined();
@@ -359,7 +359,7 @@ describe("coding agent sessions", () => {
     sm.appendCustomEntry(NATIVE_SESSION_ENTRY, {
       version: 2,
       state: "ready",
-      runtime: "claude-code-cli",
+      runtime: "agent.acme.demo.one",
       sessionId: "expired",
       ...(pending ? { pendingUserMessageId: originalId } : {}),
     });
@@ -396,14 +396,14 @@ describe("coding agent sessions", () => {
         ),
     ).toHaveLength(2);
     expect(
-      latestNativeSession(sm.getBranch(), "claude-code-cli")?.sessionId,
+      latestNativeSession(sm.getBranch(), "agent.acme.demo.one")?.sessionId,
     ).toBe("replacement");
     if (pending) {
       expect(drivers[1]!.inputs[0]!.text).toContain("UNSENT-END");
-      expect(latestNativeSession(sm.getBranch(), "claude-code-cli")?.pendingUserMessageId).toBe(originalId);
+      expect(latestNativeSession(sm.getBranch(), "agent.acme.demo.one")?.pendingUserMessageId).toBe(originalId);
       await session.prompt("try again");
       expect(drivers[1]!.inputs[1]!.text).toContain("UNSENT-END");
-      expect(latestNativeSession(sm.getBranch(), "claude-code-cli")?.pendingUserMessageId).toBeUndefined();
+      expect(latestNativeSession(sm.getBranch(), "agent.acme.demo.one")?.pendingUserMessageId).toBeUndefined();
     }
     session.dispose();
   });
@@ -524,7 +524,7 @@ describe("coding agent sessions", () => {
         async () => ({ status: "completed" }),
       ]);
       await stop(session, "first");
-      expect(latestNativeSession(sessionManager.getBranch(), "claude-code-cli")).toMatchObject({
+      expect(latestNativeSession(sessionManager.getBranch(), "agent.acme.demo.one")).toMatchObject({
         sessionId: "native-1",
         interrupted: true,
       });
@@ -538,7 +538,7 @@ describe("coding agent sessions", () => {
       expect(drivers[0]!.inputs[1]!.text).toContain("second");
       expect(drivers[0]!.inputs[1]!.text).not.toContain("<conversation-handoff>");
       expect(drivers[0]!.inputs[2]!.text).toBe("third");
-      expect(latestNativeSession(sessionManager.getBranch(), "claude-code-cli")?.interrupted).toBeUndefined();
+      expect(latestNativeSession(sessionManager.getBranch(), "agent.acme.demo.one")?.interrupted).toBeUndefined();
       session.dispose();
     });
 
@@ -659,24 +659,24 @@ describe("coding agent sessions", () => {
       await stop(session, "first");
       session.dispose();
 
-      expect(latestNativeSession(sessionManager.getBranch(), "claude-code-cli", "work")).toBeUndefined();
+      expect(latestNativeSession(sessionManager.getBranch(), "agent.acme.demo.one", "work")).toBeUndefined();
     });
   });
 
   it("rebuilds context for legacy or interrupted native metadata", () => {
     for (const data of [
-      { version: 1, runtime: "claude-code-cli", sessionId: "legacy" },
+      { version: 1, runtime: "agent.acme.demo.one", sessionId: "legacy" },
       {
         version: 2,
         state: "active",
-        runtime: "claude-code-cli",
+        runtime: "agent.acme.demo.one",
         sessionId: "interrupted",
       },
     ]) {
       const sm = SessionManager.inMemory("/tmp/project-1");
       sm.appendCustomEntry(NATIVE_SESSION_ENTRY, data);
       expect(
-        latestNativeSession(sm.getBranch(), "claude-code-cli"),
+        latestNativeSession(sm.getBranch(), "agent.acme.demo.one"),
       ).toBeUndefined();
     }
   });
@@ -781,7 +781,7 @@ describe("coding agent sessions", () => {
     ).toEqual([
       {
         version: 1,
-        runtime: "claude-code-cli",
+        runtime: "agent.acme.demo.one",
         model: "sonnet",
         input: 100,
         output: 20,
@@ -801,10 +801,10 @@ describe("coding agent sessions", () => {
     );
     expect(checkpoint).toBeGreaterThanOrEqual(0);
     expect(checkpoint).toBeLessThan(message);
-    expect(latestNativeSession(branch, "claude-code-cli")).toEqual({
+    expect(latestNativeSession(branch, "agent.acme.demo.one")).toEqual({
       version: 2,
       state: "ready",
-      runtime: "claude-code-cli",
+      runtime: "agent.acme.demo.one",
       sessionId: "native-1",
     });
 
@@ -908,7 +908,7 @@ describe("coding agent sessions", () => {
     await expect(run.result).rejects.toThrow("not signed in");
     expect(
       received.find((event) => event.type === "agent.error")?.data,
-    ).toEqual({ error: "Claude Code exited with code 1: not signed in", diagnostics: { provider: "claude-code-cli", model: "sonnet" } });
+    ).toEqual({ error: "Claude Code exited with code 1: not signed in", diagnostics: { provider: "agent.acme.demo.one", model: "sonnet" } });
   });
 
   it("asks the person each time the agent asks, and passes always allowing back to the agent", async () => {
@@ -1065,7 +1065,7 @@ describe("coding agent sessions", () => {
       )!;
     sessionManager.branch(first.id);
     const fresh = new NativeCodingSession({
-      runtime: "claude-code-cli",
+      runtime: "agent.acme.demo.one",
       model: "sonnet",
       sessionManager,
       createDriver: (resume) => {
@@ -1089,25 +1089,25 @@ describe("coding agent sessions", () => {
     sessionManager.appendCustomEntry(NATIVE_SESSION_ENTRY, {
       version: 2,
       state: "ready",
-      runtime: "claude-code-cli",
+      runtime: "agent.acme.demo.one",
       sessionId: "claude-1",
     });
     expect(
-      latestNativeSession(sessionManager.getBranch(), "claude-code-cli")
+      latestNativeSession(sessionManager.getBranch(), "agent.acme.demo.one")
         ?.sessionId,
     ).toBe("claude-1");
     sessionManager.appendCustomEntry(NATIVE_SESSION_ENTRY, {
       version: 2,
       state: "ready",
-      runtime: "codex-cli",
+      runtime: "agent.acme.demo.two",
       sessionId: "codex-1",
     });
     // Codex held the conversation since; Claude Code's session has not seen that.
     expect(
-      latestNativeSession(sessionManager.getBranch(), "claude-code-cli"),
+      latestNativeSession(sessionManager.getBranch(), "agent.acme.demo.one"),
     ).toBeUndefined();
     expect(
-      latestNativeSession(sessionManager.getBranch(), "codex-cli")?.sessionId,
+      latestNativeSession(sessionManager.getBranch(), "agent.acme.demo.two")?.sessionId,
     ).toBe("codex-1");
   });
 
@@ -1124,7 +1124,7 @@ describe("coding agent sessions", () => {
 it("hands the agent the Skills a message names, leaving the message as written", async () => {
   const driver = new ScriptedDriver([], undefined);
   const session = new NativeCodingSession({
-    runtime: "codex-cli",
+    runtime: "agent.acme.demo.two",
     model: "model",
     sessionManager: SessionManager.inMemory("/tmp/native-skills"),
     toolNames: [],
@@ -1143,7 +1143,7 @@ it("hands the agent the Skills a message names, leaving the message as written",
 it("does not duplicate delayed native text completions after a tool flushes the assistant", async () => {
   const store = SessionManager.inMemory("/tmp/native-events");
   const session = new NativeCodingSession({
-    runtime: "opencode-cli",
+    runtime: "agent.acme.demo.three",
     model: "model",
     sessionManager: store,
     toolNames: [],
@@ -1180,7 +1180,7 @@ it("does not duplicate delayed native text completions after a tool flushes the 
 
 it("keeps only the unseen suffix when a native text block continues across a tool", async () => {
   const session = new NativeCodingSession({
-    runtime: "opencode-cli",
+    runtime: "agent.acme.demo.three",
     model: "model",
     sessionManager: SessionManager.inMemory("/tmp/native-suffix"),
     toolNames: [],

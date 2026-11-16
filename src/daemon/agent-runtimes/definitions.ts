@@ -45,46 +45,7 @@ export interface AgentRuntimeDefinition {
 export const AGENT_RUNTIME_DEFINITIONS: Record<
   BuiltInAgentRuntimeId,
   AgentRuntimeDefinition
-> = {
-  "claude-code-cli": {
-    id: "claude-code-cli",
-    name: "Claude Code",
-    binaries: ["claude"],
-    versionArgs: ["--version"],
-    testedVersion: "2.1.302",
-    loginCommand: "claude auth login",
-    installUrl: "https://docs.anthropic.com/en/docs/claude-code/setup",
-  },
-  "codex-cli": {
-    id: "codex-cli",
-    name: "Codex",
-    binaries: ["codex"],
-    bundledPaths: {
-      darwin: ["/Applications", "~/Applications"].flatMap((directory) =>
-        [
-          { app: "Codex", source: "codex-app" as const },
-          { app: "ChatGPT", source: "chatgpt-app" as const },
-        ].map(({ app, source }) => ({
-          path: `${directory}/${app}.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex`,
-          source,
-        })),
-      ),
-    },
-    versionArgs: ["--version"],
-    testedVersion: "0.163.0",
-    loginCommand: "codex login",
-    installUrl: "https://developers.openai.com/codex/cli",
-  },
-  "opencode-cli": {
-    id: "opencode-cli",
-    name: "OpenCode",
-    binaries: ["opencode"],
-    versionArgs: ["--version"],
-    testedVersion: "2.1.0",
-    loginCommand: "opencode auth login",
-    installUrl: "https://opencode.ai/v2/docs/",
-  },
-};
+> = {};
 
 const pluginAgents = new Map<PluginAgentRuntimeId, AgentRuntimeDefinition>();
 
@@ -101,7 +62,7 @@ export function setPluginAgentDefinitions(
   return changed;
 }
 
-/** The built-in agents, then those installed plugins add. */
+/** The coding agents installed plugins add. Pi runs conversations that do not pick one. */
 export function agentRuntimeIds(): AgentRuntimeId[] {
   return [...AGENT_RUNTIME_IDS, ...pluginAgents.keys()];
 }

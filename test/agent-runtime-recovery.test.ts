@@ -50,119 +50,25 @@ async function folder() {
   cleanup.push(() => rm(root, { recursive: true, force: true }));
   return root;
 }
-it("keeps runtimes opt-in and persists native defaults independently of Pi", async () => {
+it("ignores removed coding-agent settings and persists a plugin agent", async () => {
   const root = await folder();
-  await writeFile(
-    path.join(root, "agent-runtimes.json"),
-    JSON.stringify({
-      version: 1,
-      runtimes: Object.fromEntries(
-        ["claude-code-cli", "codex-cli", "opencode-cli"].map((id) => [
-          id,
-          { isolateUserConfig: true },
-        ]),
-      ),
-    }),
-  );
+  const plugin = "agent.acme.demo.helper";
+  await writeFile(path.join(root, "agent-runtimes.json"), JSON.stringify({
+    version: 2,
+    runtimes: {
+      "claude-code-cli": { enabled: true, permissionMode: "bypassPermissions" },
+      "codex-cli": { enabled: true, permissionMode: ":workspace" },
+      [plugin]: { enabled: true, permissionMode: "default", autoContinue: false },
+    },
+  }));
   const store = new AgentRuntimeSettingsStore(root);
   await store.load();
-  for (const id of ["claude-code-cli", "codex-cli", "opencode-cli"] as const)
-    expect(store.get(id)).not.toHaveProperty("isolateUserConfig");
-  expect(store.get("codex-cli").enabled).toBe(false);
-  expect(store.get("codex-cli").permissionMode).toBe(":danger-full-access");
-  expect(store.get("codex-cli").autoContinue).toBe(true);
-  expect(store.get("claude-code-cli").identifyAsOhMyGame).toBe(true);
-  await store.update("claude-code-cli", { identifyAsOhMyGame: false });
-  await store.update("codex-cli", {
-    enabled: true,
-    autoContinue: false,
-    permissionMode: ":workspace",
-  });
-  // A mode of another agent is not one of Codex's.
-  await expect(
-    store.update("codex-cli", { permissionMode: "acceptEdits" }),
-  ).rejects.toThrow("not a permission mode");
-  await store.setDefaultModel({
-    model: { provider: "codex-cli", id: "test" },
-    nativeReasoningLevel: "custom-effort",
-  });
+  expect(store.get(plugin)).toMatchObject({ enabled: true, permissionMode: "default", autoContinue: false });
+  await store.update(plugin, { permissionMode: "allow" });
   const restarted = new AgentRuntimeSettingsStore(root);
   await restarted.load();
-  expect(restarted.defaultModel()?.nativeReasoningLevel).toBe("custom-effort");
-  expect(restarted.get("codex-cli").enabled).toBe(true);
-  expect(restarted.get("codex-cli").autoContinue).toBe(false);
-  expect(restarted.get("claude-code-cli").autoContinue).toBe(true);
-  expect(restarted.get("claude-code-cli").identifyAsOhMyGame).toBe(false);
-  // A choice saved after the move to asking nothing is kept.
-  expect(restarted.get("codex-cli").permissionMode).toBe(":workspace");
-  expect(restarted.get("opencode-cli").enabled).toBe(false);
-  const saved = await readFile(path.join(root, "agent-runtimes.json"), "utf8");
-  expect(saved).not.toContain("isolateUserConfig");
-  expect(JSON.parse(saved).version).toBe(2);
-});
-
-it("moves settings saved with OhMyGame's former modes to each agent's own", async () => {
-  const root = await folder();
-  const file = path.join(root, "agent-runtimes.json");
-  const asksNothing = {
-    "claude-code-cli": "bypassPermissions",
-    "codex-cli": ":danger-full-access",
-    "opencode-cli": "allow",
-  } as const;
-  // Version 1 saved "standard" with any setting, chosen or not.
-  await writeFile(
-    file,
-    JSON.stringify({
-      version: 1,
-      runtimes: {
-        "claude-code-cli": { enabled: true, permissionMode: "standard" },
-        "codex-cli": { enabled: true, permissionMode: "full" },
-        "opencode-cli": { enabled: false },
-      },
-    }),
-  );
-  const legacy = new AgentRuntimeSettingsStore(root);
-  await legacy.load();
-  for (const id of ["claude-code-cli", "codex-cli", "opencode-cli"] as const)
-    expect(legacy.get(id).permissionMode).toBe(asksNothing[id]);
-  expect(legacy.get("claude-code-cli").enabled).toBe(true);
-  // A mode chosen from then on survives restarts.
-  await legacy.update("claude-code-cli", { permissionMode: "auto" });
-  for (let restart = 0; restart < 2; restart++) {
-    const store = new AgentRuntimeSettingsStore(root);
-    await store.load();
-    expect(store.get("claude-code-cli").permissionMode).toBe("auto");
-    expect(store.get("codex-cli").permissionMode).toBe(":danger-full-access");
-  }
-  // A file without a version is as old as version 1.
-  await writeFile(
-    file,
-    JSON.stringify({
-      runtimes: { "codex-cli": { enabled: true, permissionMode: "standard" } },
-    }),
-  );
-  const unversioned = new AgentRuntimeSettingsStore(root);
-  await unversioned.load();
-  expect(unversioned.get("codex-cli").permissionMode).toBe(
-    ":danger-full-access",
-  );
-  // A later file naming the former modes keeps their meaning in each agent's own words.
-  await writeFile(
-    file,
-    JSON.stringify({
-      version: 2,
-      runtimes: {
-        "claude-code-cli": { permissionMode: "standard" },
-        "codex-cli": { permissionMode: "standard" },
-        "opencode-cli": { permissionMode: "full" },
-      },
-    }),
-  );
-  const named = new AgentRuntimeSettingsStore(root);
-  await named.load();
-  expect(named.get("claude-code-cli").permissionMode).toBe("acceptEdits");
-  expect(named.get("codex-cli").permissionMode).toBe(":workspace");
-  expect(named.get("opencode-cli").permissionMode).toBe("allow");
+  expect(restarted.get(plugin).permissionMode).toBe("allow");
+  expect(restarted.get(plugin).enabled).toBe(true);
 });
 
 it.skipIf(process.platform !== "win32")(

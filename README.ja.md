@@ -39,7 +39,7 @@
 
 過去のビルドとリリースノートは [Releases](https://github.com/WhiteTowerAI/ohmygame/releases) にあります。Windows 版はまだコード署名されていないため、初回インストール時に SmartScreen の警告が出ることがあります。Intel Mac と Linux は[ロードマップ](https://github.com/WhiteTowerAI/ohmygame/issues)に入っています。
 
-OhMyGame にはモデルが同梱されていません。初回起動時に、モデルプロバイダーか、すでに使っているコーディングエージェントを接続してください：[初回起動](https://ohmygame.ai/docs/first-run/)。
+OhMyGame にはモデルが同梱されていません。初回起動時に、モデルプロバイダーを接続してください：[初回起動](https://ohmygame.ai/docs/first-run/)。
 
 ## 機能
 
@@ -47,7 +47,7 @@ OhMyGame にはモデルが同梱されていません。初回起動時に、�
 - **すべてのアセットを 1 つのキャンバスに。** 画像、動画、3D モデル、アニメーション、ボイス、効果音、音楽を AI で生成し、1 つのキャンバスで整理して、そのままゲームで使えます。
 - **リンクとして公開。** 誰でもブラウザでプレイでき、[コミュニティ](https://ohmygame.ai/community/)にも掲載されます。マルチプレイヤーゲームのルーム、プレイヤーのサインイン、セーブデータ、リーダーボードも一緒に公開されます。
 - **プラグインで拡張。** プラグインは、エージェントに新しいスキルやツールを与え、アプリにパネルやプロジェクトタイプを追加できます。同梱のプラグインは Godot、Unity、Unreal Engine、Blender、Aseprite、Tiled のほか、WeChat ミニゲームや Douyin ミニゲームなどのプラットフォームに対応しています。[自分で作る](https://ohmygame.ai/docs/plugins/make/)こともできます。
-- **自分のエージェントを使う。** OhMyGame は Claude Code、Codex、OpenCode で動かすことも、40 以上のモデルプロバイダーに自分のキーで接続して動かすこともできます。実行ごとのクレジットはかかりません。逆方向にも使えます：MCP 経由で、自分のエージェントから OhMyGame のキャンバス、メディア生成、プレイテストを利用できます。[モデル](https://ohmygame.ai/docs/models/) · [外部エージェント](docs/external-agents.md)
+- **自分のモデルを使う。** 40 以上のモデルプロバイダーに自分のキーで接続できます。実行ごとのクレジットはかかりません。会話のエージェントは Pi です。逆方向にも使えます：MCP 経由で、自分のエージェントから OhMyGame のキャンバス、メディア生成、プレイテストを利用できます。[モデル](https://ohmygame.ai/docs/models/) · [外部エージェント](docs/external-agents.md)
 
 ## 作れるもの
 

@@ -2,10 +2,8 @@ import { execFile } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import {
-  isBuiltInAgentRuntimeId,
   type AccountRuntimeId,
   type AgentRuntimeId,
-  type BuiltInAgentRuntimeId,
 } from "../../shared/agent-runtimes.js";
 import { EXTERNAL_MCP_DISABLED_ENV } from "../../shared/external-mcp.js";
 
@@ -60,30 +58,14 @@ const SHARED = new Set([
   "USERNAME",
 ]);
 
-/**
- * Each CLI's own sign-in and configuration location, which it needs to find the person's subscription.
- * `CLAUDE_CONFIG_DIR` and `CODEX_HOME` are not inherited: System default is the
- * CLI's default folder, and the service names an account's folder itself. A
- * value OhMyGame was launched with only reflects whichever account a terminal
- * or account switcher had selected at that moment.
- */
-const RUNTIME_KEEP: Record<BuiltInAgentRuntimeId, readonly string[]> = {
-  "claude-code-cli": ["CLAUDE_CODE_OAUTH_TOKEN"],
-  "codex-cli": [],
-  "opencode-cli": ["OPENCODE_CONFIG_DIR", "OPENCODE_CONFIG"],
-};
-
 export function agentEnvironment(
-  runtime: AgentRuntimeId,
+  _runtime: AgentRuntimeId,
   binaryPath: string,
   extra: Record<string, string> = {},
   source: NodeJS.ProcessEnv = process.env,
   shellPath?: string,
 ): Record<string, string> {
-  const keep = new Set([
-    ...SHARED,
-    ...(isBuiltInAgentRuntimeId(runtime) ? RUNTIME_KEEP[runtime] : []),
-  ]);
+  const keep = new Set(SHARED);
   const result: Record<string, string> = {};
   for (const [name, value] of Object.entries(source)) {
     if (value === undefined) continue;
@@ -104,12 +86,12 @@ export function agentEnvironment(
   return { ...result, [EXTERNAL_MCP_DISABLED_ENV]: "1", ...extra };
 }
 
-/** The folder each CLI uses when no account folder is named, which System default always uses. */
+/** Kept for account-profile paths. No built-in CLI owns a configuration directory. */
 export function systemConfigDirectory(
-  runtime: AccountRuntimeId,
+  _runtime: AccountRuntimeId,
   home = os.homedir(),
 ): string {
-  return path.join(home, runtime === "claude-code-cli" ? ".claude" : ".codex");
+  return home;
 }
 
 /** Where people usually install these CLIs, for an app started from the Dock with only the system PATH. */

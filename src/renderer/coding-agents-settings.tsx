@@ -11,14 +11,12 @@ import {
   agentPermissionModes,
   fullAccessPermissionMode,
   isAccountRuntimeId,
-  isBuiltInAgentRuntimeId,
 } from "../shared/agent-runtimes.js";
 import type {
   AgentPermissionMode,
   AgentRuntimeDiagnostic,
   AgentRuntimeId,
   AgentRuntimeStatus,
-  BuiltInAgentRuntimeId,
 } from "../shared/agent-runtimes.js";
 import type { AgentModel } from "../shared/contracts.js";
 import {
@@ -39,35 +37,7 @@ import { t } from "./i18n.js";
 import { AgentAccountProfiles } from "./agent-account-profiles.js";
 import { pluginHash, pluginsTabHash } from "./routes.js";
 
-type PermissionModeKey =
-  | "claudeDefault"
-  | "claudeAcceptEdits"
-  | "claudeAuto"
-  | "claudeBypass"
-  | "codexWorkspace"
-  | "codexFullAccess"
-  | "openCodeRules"
-  | "openCodeAllow"
-  | "pluginRules"
-  | "pluginAllow";
-
-/** Each agent's own permission modes, by the names their CLIs give them. */
-const PERMISSION_MODE_KEYS: Record<
-  BuiltInAgentRuntimeId,
-  Partial<Record<AgentPermissionMode, PermissionModeKey>>
-> = {
-  "claude-code-cli": {
-    default: "claudeDefault",
-    acceptEdits: "claudeAcceptEdits",
-    auto: "claudeAuto",
-    bypassPermissions: "claudeBypass",
-  },
-  "codex-cli": {
-    ":workspace": "codexWorkspace",
-    ":danger-full-access": "codexFullAccess",
-  },
-  "opencode-cli": { default: "openCodeRules", allow: "openCodeAllow" },
-};
+type PermissionModeKey = "pluginRules" | "pluginAllow";
 
 /** Agents from plugins ask as their own rules say, or are allowed everything. */
 const PLUGIN_PERMISSION_MODE_KEYS: Partial<Record<AgentPermissionMode, PermissionModeKey>> = {
@@ -78,13 +48,10 @@ const PLUGIN_PERMISSION_MODE_KEYS: Partial<Record<AgentPermissionMode, Permissio
 function permissionOptions(
   agent: AgentRuntimeStatus,
 ): { value: AgentPermissionMode; label: string; description: string }[] {
-  const keys = isBuiltInAgentRuntimeId(agent.id)
-    ? PERMISSION_MODE_KEYS[agent.id]
-    : PLUGIN_PERMISSION_MODE_KEYS;
   return agentPermissionModes(agent.id).map((value) => ({
     value,
-    label: t(`codingAgents.permissionMode.${keys[value]!}`),
-    description: t(`codingAgents.permissionModeHint.${keys[value]!}`, { name: agent.name }),
+    label: t(`codingAgents.permissionMode.${PLUGIN_PERMISSION_MODE_KEYS[value]!}`),
+    description: t(`codingAgents.permissionModeHint.${PLUGIN_PERMISSION_MODE_KEYS[value]!}`, { name: agent.name }),
   }));
 }
 
@@ -366,9 +333,6 @@ export function CodingAgentDetail({
             <RefreshCw size={15} className={busy === "recheck" ? "spin" : undefined} />
           </IconButton>
         </SettingsRow>
-        {agent.installed && agent.id === "opencode-cli" ? (
-          <SettingsRow title={t("codingAgents.account")} description={t("codingAgents.openCodeAccounts")} />
-        ) : null}
         {agent.plugin ? (
           <SettingsRow title={t("codingAgents.plugin")} description={t("codingAgents.pluginHint", { name: agent.name })}>
             <Button size="sm" onClick={() => { window.location.hash = pluginHash(agent.plugin); }}>
@@ -393,7 +357,7 @@ export function CodingAgentDetail({
       }} disabled={busy !== undefined} /> : null}
       {login ? <LoginHint login={login} onOpen={link.open} failed={link.failedUrl === login.url} /> : null}
       <ExternalLinkFallback url={link.failedUrl} />
-      {agent.installed && agent.id !== "opencode-cli" && !agent.plugin ? (
+        {agent.installed && !agent.plugin ? (
         // OpenCode bills each model provider; its account has no quota of its own.
         <SettingsGroup title={t("agentUsage.title")}>
           <div className="settings-pad">

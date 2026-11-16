@@ -270,12 +270,16 @@ describe("project shell layout", () => {
       }
       return undefined;
     });
-    const profiles = () => daemon.requests.filter((request) => request.route === "/agent-runtimes/codex-cli/profiles");
+    const profiles = () => daemon.requests.filter((request) => request.route.includes("/profiles"));
+    const reads = () => daemon.requests.filter((request) => request.method === "GET" && request.route === "/projects/project/conversations/conversation");
     expect(profiles()).toHaveLength(0);
+    const before = reads().length;
     await typePrompt("Make a game", container);
     await click("Send prompt");
-    // Its Codex account controls load once the conversation's own model is known.
-    await vi.waitFor(() => expect(profiles()).toHaveLength(1));
+    // Sending stores the picker's model and the chat reads it back. A removed CLI has no account list.
+    await vi.waitFor(() => expect(reads().length).toBeGreaterThan(before));
+    expect(profiles()).toHaveLength(0);
+    expect(daemon.requests.some((request) => request.method === "POST" && request.route.includes("/turns"))).toBe(true);
   });
 
   it("does not reformat historical responses while the current response streams, and keeps branching available", async () => {
@@ -914,7 +918,7 @@ describe("continue after a usage limit in the project shell", () => {
   /** A chat stopped at a usage limit, with a daemon that keeps the state of its continue. */
   async function openStopped(otherRoutes: (route: string) => Response | Promise<Response> | undefined = () => undefined) {
     const chat = detail("turn");
-    chat.settings = { model: { provider: "claude-code-cli", id: "sonnet" } };
+    chat.settings = { model: { provider: "agent.acme.demo.helper", id: "sonnet" } };
     chat.turns[0] = { id: "turn", conversationId: "conversation", status: "failed", items: [
       { id: "turn:user", turnId: "turn", type: "userMessage", text: "Build", checkpointId: "checkpoint-1", changes: { files: 2 } },
       { id: "turn:error", turnId: "turn", type: "agentMessage", text: "", status: "failed", error: { code: "quota_exceeded", message: "You've hit your limit" } },
@@ -924,7 +928,7 @@ describe("continue after a usage limit in the project shell", () => {
       const other = otherRoutes(route);
       if (other) return other;
       if (route.includes("/context-usage")) return Response.json({ contextUsage: { tokens: null, contextWindow: 0, percent: null, limitResume: { at: Date.UTC(2026, 9, 26, 12), state: limitState } } });
-      if (route === "/agent-runtimes/claude-code-cli" && init.method === "PATCH") {
+      if (route === "/agent-runtimes/agent.acme.demo.helper" && init.method === "PATCH") {
         limitState = JSON.parse(String(init.body)).autoContinue ? "armed" : "off";
         return Response.json({});
       }
@@ -941,7 +945,7 @@ describe("continue after a usage limit in the project shell", () => {
     expect(toggle()?.getAttribute("aria-checked")).toBe("true");
     await act(async () => toggle()!.click());
     await settle();
-    expect(daemon.requests.find((request) => request.method === "PATCH")).toMatchObject({ route: "/agent-runtimes/claude-code-cli", body: JSON.stringify({ autoContinue: false }) });
+    expect(daemon.requests.find((request) => request.method === "PATCH")).toMatchObject({ route: "/agent-runtimes/agent.acme.demo.helper", body: JSON.stringify({ autoContinue: false }) });
     expect(toggle()?.getAttribute("aria-checked")).toBe("false");
     await act(async () => toggle()!.click());
     await settle();
@@ -1043,33 +1047,17 @@ describe("continue after a usage limit in the project shell", () => {
 });
 
 describe("checkpoints in the project shell", () => {
-  it.each(["claude-code-cli", "codex-cli"] as const)("switches the selected %s chat account without changing its model or other chats", async (runtime) => {
+  it("does not offer an account menu for a chat saved on a removed coding agent", async () => {
     const chat = detail("turn");
-    chat.settings = { model: { provider: runtime, id: runtime === "codex-cli" ? "gpt-test" : "sonnet" }, accountProfiles: { [runtime]: "system" } };
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
-    const daemon = await openProject((route, init) => {
-      if (route === `/agent-runtimes/${runtime}/profiles`) return Response.json([
-        { id: "system", name: "System default", auth: { status: "signed-in", billing: "subscription", account: "personal@example.com" } },
-        { id: "work", name: "Work", auth: { status: "signed-in", billing: "subscription", account: "work@example.com" }, limits: [{ id: "codex/primary", usedPercent: 96, windowMinutes: 300 }] },
+    chat.settings = { model: { provider: "codex-cli", id: "gpt-test" }, accountProfiles: { "codex-cli": "system" } };
+    const daemon = await openProject((route) => {
+      if (route === "/agent-runtimes/codex-cli/profiles") return Response.json([
+        { id: "system", name: "System default", auth: { status: "signed-in", billing: "subscription" } },
+        { id: "work", name: "Work", auth: { status: "signed-in", billing: "subscription" } },
       ]);
-      if (route.endsWith("/account-profile") && init.method === "PUT") return Response.json({ profileId: "work" });
     }, chat);
-    const label = `${runtime === "codex-cli" ? "Codex" : "Claude Code"} account`;
-    const selector = container.querySelector<HTMLButtonElement>(`[aria-label^="${label}:"]`)!;
-    expect(selector).not.toBeNull();
-    const profileReads = daemon.requests.filter((request) => request.route === `/agent-runtimes/${runtime}/profiles`).length;
-    await act(async () => selector.click());
-    const option = [...document.querySelectorAll<HTMLButtonElement>('.agent-account-menu [role="radio"]')].find((button) => button.textContent?.includes("Work"))!;
-    // Each account shows its busiest window, so one with room left is easy to pick.
-    expect(option.querySelector(".agent-account-row-usage.is-danger")?.textContent).toBe("96%");
-    await act(async () => option.click());
-    await settle();
-    expect(confirm).not.toHaveBeenCalled();
-    expect(selector.querySelector(".agent-account-trigger-name")?.textContent).toBe("Work");
-    expect(container.querySelector(`[aria-label^="${label}:"]`)).toBe(selector);
-    expect(daemon.requests.filter((request) => request.route === `/agent-runtimes/${runtime}/profiles`)).toHaveLength(profileReads);
-    expect(daemon.requests.find((request) => request.route.endsWith("/account-profile"))).toMatchObject({ method: "PUT", body: JSON.stringify({ runtime, profileId: "work" }) });
-    expect(daemon.requests.some((request) => request.route.endsWith("/model") && request.method === "PUT")).toBe(false);
+    expect(container.querySelector(".agent-account-menu, [aria-label^=\"Codex account:\"]")).toBeNull();
+    expect(daemon.requests.some((request) => request.route.includes("/profiles") || request.route.endsWith("/account-profile"))).toBe(false);
   });
 
   it("keeps a conversation opened while the previous one was being archived", async () => {
@@ -1099,24 +1087,6 @@ describe("checkpoints in the project shell", () => {
     expect(errors.mock.calls.some((call) => String(call[0]).includes("hooks"))).toBe(false);
   });
 
-  it("refreshes the account picker after a profile is deleted in settings", async () => {
-    let removed = false;
-    const chat = detail("turn");
-    chat.settings = { model: { provider: "codex-cli", id: "gpt-test" }, accountProfiles: { "codex-cli": "work" } };
-    const daemon = await openProject((route) => {
-      if (route === "/agent-runtimes/codex-cli/profiles") return Response.json([
-        { id: "system", name: "System default", auth: { status: "signed-in", billing: "subscription" } },
-        { id: "personal", name: "Personal", auth: { status: "signed-in", billing: "subscription" } },
-        ...(!removed ? [{ id: "work", name: "Work", auth: { status: "signed-in", billing: "subscription" } }] : []),
-      ]);
-    }, chat);
-    expect(container.querySelector('[aria-label^="Codex account:"] .agent-account-trigger-name')?.textContent).toBe("Work");
-    removed = true;
-    await act(async () => window.dispatchEvent(new Event("ohmygame-models-changed")));
-    await settle();
-    expect(container.querySelector('[aria-label^="Codex account:"] .agent-account-trigger-name')?.textContent).toBe("Default");
-    expect(daemon.requests.some((request) => request.route.endsWith("/account-profile") && request.method === "PUT")).toBe(false);
-  });
 
   it("undoes a turn through the conflict choice and marks it without reading the conversation again", async () => {
     const daemon = await openProject((route, init) => {

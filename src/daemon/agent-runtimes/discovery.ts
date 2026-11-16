@@ -4,7 +4,6 @@ import {
   access,
   constants,
   mkdir,
-  readdir,
   realpath,
   rm,
   stat,
@@ -29,18 +28,7 @@ import {
   loginShellPath,
 } from "./environment.js";
 import { leaseAgentDirectory } from "./process-recovery.js";
-import { AgentProcess } from "./process.js";
 import { probeAcpModels } from "./acp.js";
-import {
-  CodexAppServer,
-  codexLimits,
-  checkCodexCompatibility,
-} from "./codex-app-server.js";
-import {
-  AgentRuntimeCompatibilityError,
-  cliProbeError,
-} from "./compatibility.js";
-import { OpenCodeDriver } from "./opencode.js";
 import { launchCommand, npmShimTarget } from "./npm-shim.js";
 
 const PROBE_TIMEOUT_MS = 15_000;
@@ -54,17 +42,8 @@ export interface ResolvedBinary {
   signature: string;
 }
 
-/** Only these Windows npm shims can be resolved without executing a script. */
-export function isCodexNpmShim(binaryPath: string): boolean {
-  return (
-    process.platform === "win32" &&
-    /^codex\.(?:cmd|ps1)$/i.test(path.basename(binaryPath))
-  );
-}
-
-/** A script that can be chosen as a CLI: Codex's npm shim, or the npm shim of an ACP agent, which is read instead of run. */
+/** A Windows npm shim of a plugin agent, which is read instead of run. */
 export function isReadableShim(id: AgentRuntimeId, binaryPath: string): boolean {
-  if (id === "codex-cli") return isCodexNpmShim(binaryPath);
   return process.platform === "win32" && Boolean(agentRuntimeDefinition(id).acp) && npmShimTarget(binaryPath) !== undefined;
 }
 
@@ -101,41 +80,6 @@ export async function resolveBinary(
           }),
         ),
       ];
-  // npm exposes a shell shim on Windows, but ships the native CLI inside the
-  // package. Resolve that known layout without running the shim through cmd.
-  if (id === "codex-cli" && process.platform === "win32") {
-    if (override && isCodexNpmShim(override)) {
-      if (!(await stat(override).catch(() => undefined))?.isFile())
-        return undefined;
-      candidates.splice(
-        0,
-        candidates.length,
-        ...windowsNpmCodexCandidates(path.dirname(override), "manual"),
-      );
-    } else if (!override) {
-      const directories = new Map(
-        candidates.map((candidate) => [
-          path.dirname(candidate.path),
-          candidate.source,
-        ]),
-      );
-      for (const [directory, source] of directories)
-        candidates.push(...windowsNpmCodexCandidates(directory, source));
-      const local = process.env.LOCALAPPDATA;
-      if (local) {
-        const bin = path.join(local, "OpenAI", "Codex", "bin");
-        const entries = await readdir(bin, { withFileTypes: true }).catch(
-          () => [],
-        );
-        for (const entry of entries)
-          if (entry.isDirectory())
-            candidates.push({
-              path: path.join(bin, entry.name, "codex.exe"),
-              source: "codex-app",
-            });
-      }
-    }
-  }
   const found: ResolvedBinary[] = [];
   const seen = new Set<string>();
   for (const candidate of candidates) {
@@ -175,29 +119,6 @@ export async function resolveBinary(
       best = index;
   }
   return found[best];
-}
-
-function windowsNpmCodexCandidates(
-  directory: string,
-  source: AgentRuntimeBinarySource,
-): Array<{ path: string; source: AgentRuntimeBinarySource }> {
-  const arch = process.arch === "arm64" ? "arm64" : "x64";
-  const target = `${arch === "arm64" ? "aarch64" : "x86_64"}-pc-windows-msvc`;
-  const root = path.join(directory, "node_modules", "@openai", "codex");
-  const platformPackage = `codex-win32-${arch}`;
-  // compat: the vendor/ and codex/ paths go when the oldest supported Codex CLI ships bin/ in its platform package.
-  // npm may nest or hoist the optional platform package. Older releases kept
-  // vendor/ in the main package and used codex/ instead of bin/.
-  return [
-    path.join(root, "node_modules", "@openai", platformPackage),
-    path.join(directory, "node_modules", "@openai", platformPackage),
-    root,
-  ].flatMap((packageRoot) =>
-    ["bin", "codex"].map((folder) => ({
-      path: path.join(packageRoot, "vendor", target, folder, "codex.exe"),
-      source,
-    })),
-  );
 }
 
 const versionCache = new Map<
@@ -312,60 +233,16 @@ export interface AuthProbe {
 
 /** Asks the CLI who it is signed in as. OhMyGame never reads a CLI's credential files. */
 export async function probeAuth(
-  binaryPath: string,
+  _binaryPath: string,
   id: AgentRuntimeId,
-  env: Record<string, string>,
+  _env: Record<string, string>,
 ): Promise<AuthProbe> {
-  if (id === "claude-code-cli") {
-    const { stdout } = await runCli(binaryPath, ["auth", "status"], env);
-    try {
-      const status = JSON.parse(stdout) as {
-        loggedIn?: unknown;
-        authMethod?: unknown;
-        email?: unknown;
-        apiProvider?: unknown;
-      };
-      if (status.loggedIn !== true)
-        return { status: "signed-out", billing: "unknown" };
-      const billing: AgentRuntimeBilling =
-        status.apiProvider && status.apiProvider !== "firstParty"
-          ? "provider"
-          : status.authMethod === "claude.ai" ||
-              status.authMethod === "oauth_token"
-            ? "subscription"
-            : "api-key";
-      return {
-        status: "signed-in",
-        billing,
-        ...(typeof status.email === "string" ? { account: status.email } : {}),
-      };
-    } catch {
-      return { status: "unknown", billing: "unknown" };
-    }
-  }
-  if (id === "codex-cli") {
-    const { stdout, stderr } = await runCli(
-      binaryPath,
-      ["login", "status"],
-      env,
-    );
-    const text = `${stdout}\n${stderr}`;
-    if (/not logged in/i.test(text))
-      return { status: "signed-out", billing: "unknown" };
-    if (/logged in using chatgpt/i.test(text))
-      return { status: "signed-in", billing: "subscription" };
-    if (/logged in using an api key/i.test(text))
-      return { status: "signed-in", billing: "api-key" };
-    return { status: "unknown", billing: "unknown" };
-  }
   // A plugin agent says it needs signing in only when a session starts.
-  if (agentRuntimeDefinition(id).acp)
-    return { status: "unknown", billing: "unknown" };
-  // OpenCode signs in per model provider; the model a conversation picks says who bills it.
-  return { status: "unknown", billing: "provider" };
+  agentRuntimeDefinition(id);
+  return { status: "unknown", billing: "unknown" };
 }
 
-/** The models a CLI offers, as OhMyGame's model picker lists them. */
+/** The models a plugin agent offers, as OhMyGame's model picker lists them. */
 export async function probeModels(
   binaryPath: string,
   id: AgentRuntimeId,
@@ -379,6 +256,7 @@ export async function probeModels(
   signedOut?: true;
 }> {
   const definition = agentRuntimeDefinition(id);
+  if (!definition.acp) throw new Error(`${definition.name} is not available`);
   const name = definition.name;
   const model = (
     modelId: string,
@@ -392,275 +270,19 @@ export async function probeModels(
     reasoningLevels: [],
     nativeReasoningLevels: [...new Set(levels)],
   });
-  if (definition.acp) {
-    const listed = await probeAcpModels(
-      binaryPath,
-      { name, args: definition.acp.args },
-      env,
-      privateDirectory,
-      ACP_PROBE_TIMEOUT_MS,
-    );
-    return {
-      models: listed.models.map((entry) =>
-        model(entry.id, entry.name, entry.levels),
-      ),
-      ...(listed.signedOut ? { signedOut: true as const } : {}),
-    };
-  }
-  if (id === "claude-code-cli") {
-    const listed = await claudeModels(binaryPath, env, privateDirectory);
-    return {
-      models: listed.map((entry) =>
-        model(
-          entry.value,
-          entry.displayName,
-          entry.supportsEffort ? (entry.supportedEffortLevels ?? []) : [],
-        ),
-      ),
-    };
-  }
-  if (id === "codex-cli") {
-    const server = new CodexAppServer(binaryPath, privateDirectory, env);
-    try {
-      await server.initialize(PROBE_TIMEOUT_MS);
-      await checkCodexCompatibility(server, privateDirectory, PROBE_TIMEOUT_MS);
-      const [list, account, limits] = await Promise.all([
-        codexModels(server),
-        server
-          .request<{ account?: { email?: unknown } | null }>(
-            "account/read",
-            { refreshToken: false },
-            PROBE_TIMEOUT_MS,
-          )
-          .catch(() => undefined),
-        server
-          .request("account/rateLimits/read", {}, PROBE_TIMEOUT_MS)
-          .then(codexLimits)
-          .catch(() => undefined),
-      ]);
-      const models = list
-        .filter(
-          (entry) => entry.hidden !== true && typeof entry.id === "string",
-        )
-        .map((entry) =>
-          model(
-            String(entry.id),
-            typeof entry.displayName === "string"
-              ? entry.displayName
-              : String(entry.id),
-            Array.isArray(entry.supportedReasoningEfforts)
-              ? entry.supportedReasoningEfforts.map((effort) =>
-                  String(
-                    (effort as { reasoningEffort?: unknown }).reasoningEffort,
-                  ),
-                )
-              : [],
-          ),
-        );
-      return {
-        models,
-        ...(typeof account?.account?.email === "string"
-          ? { account: account.account.email }
-          : {}),
-        ...(limits?.length ? { limits } : {}),
-      };
-    } catch (cause) {
-      if (cause instanceof AgentRuntimeCompatibilityError) throw cause;
-      throw cliProbeError(
-        "Codex",
-        cause instanceof Error ? cause.message : String(cause),
-      );
-    } finally {
-      await server.stop();
-    }
-  }
-  const output = await OpenCodeDriver.discover({
+  const listed = await probeAcpModels(
     binaryPath,
+    { name, args: definition.acp.args },
     env,
     privateDirectory,
-  });
+    ACP_PROBE_TIMEOUT_MS,
+  );
   return {
-    models: parseOpenCodeModels(output).map((entry) => ({
-      ...model(entry.id, entry.name, entry.variants),
-      ...(entry.contextWindow ? { contextWindow: entry.contextWindow } : {}),
-    })),
+    models: listed.models.map((entry) =>
+      model(entry.id, entry.name, entry.levels),
+    ),
+    ...(listed.signedOut ? { signedOut: true as const } : {}),
   };
-}
-
-async function codexModels(
-  server: CodexAppServer,
-): Promise<Array<Record<string, unknown>>> {
-  const models: Array<Record<string, unknown>> = [];
-  let cursor: string | undefined;
-  const seen = new Set<string>();
-  do {
-    const page = await server.request<{
-      data?: Array<Record<string, unknown>>;
-      nextCursor?: string | null;
-    }>(
-      "model/list",
-      { ...(cursor ? { cursor } : {}), limit: 100 },
-      PROBE_TIMEOUT_MS,
-    );
-    models.push(...(page.data ?? []));
-    cursor =
-      typeof page.nextCursor === "string" && page.nextCursor
-        ? page.nextCursor
-        : undefined;
-    if (cursor && seen.has(cursor))
-      throw new Error("Codex returned a repeated model catalog cursor");
-    if (cursor) seen.add(cursor);
-  } while (cursor);
-  return models;
-}
-
-interface ClaudeModel {
-  value: string;
-  displayName: string;
-  supportsEffort?: boolean;
-  supportedEffortLevels?: string[];
-}
-
-/** Claude Code lists its models over its control protocol, without a model request. */
-async function claudeModels(
-  binaryPath: string,
-  env: Record<string, string>,
-  cwd: string,
-): Promise<ClaudeModel[]> {
-  return new Promise((resolve, reject) => {
-    const id = `models-${randomUUID()}`;
-    let settled = false;
-    const finish = (result: ClaudeModel[] | Error) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      void child.stop();
-      if (result instanceof Error) reject(result);
-      else resolve(result);
-    };
-    const child = new AgentProcess({
-      binaryPath,
-      args: [
-        "-p",
-        "--input-format",
-        "stream-json",
-        "--output-format",
-        "stream-json",
-        "--verbose",
-        "--setting-sources",
-        "",
-        "--strict-mcp-config",
-        "--permission-prompt-tool",
-        "stdio",
-      ],
-      cwd,
-      env,
-      onLine: (line) => {
-        try {
-          const message = JSON.parse(line) as {
-            type?: string;
-            response?: {
-              request_id?: string;
-              subtype?: string;
-              response?: { models?: ClaudeModel[] };
-              error?: string;
-            };
-          };
-          if (message.type !== "control_response" || !message.response) return;
-          const isInitialize = message.response?.request_id === `init-${id}`;
-          if (!isInitialize && message.response?.request_id !== id) return;
-          if (message.response.subtype === "error")
-            finish(
-              cliProbeError(
-                "Claude Code",
-                message.response.error ??
-                  "Claude Code could not list its models",
-              ),
-            );
-          else {
-            const models = (message.response?.response?.models ?? []).filter(
-              (model) =>
-                typeof model.value === "string" &&
-                typeof model.displayName === "string",
-            );
-            // Older CLIs return the catalog during initialize; newer CLIs
-            // expose list_models. Neither operation sends a model request.
-            if (models.length || !isInitialize) finish(models);
-            else
-              child.write({
-                type: "control_request",
-                request_id: id,
-                request: { subtype: "list_models" },
-              });
-          }
-        } catch {
-          /* Not a message. */
-        }
-      },
-      onExit: (_code, _signal, stderr) =>
-        finish(
-          cliProbeError(
-            "Claude Code",
-            stderr.trim().split("\n").at(-1) ||
-              "Claude Code exited before listing its models",
-          ),
-        ),
-    });
-    const timer = setTimeout(
-      () => finish(new Error("Claude Code did not list its models in time")),
-      PROBE_TIMEOUT_MS,
-    );
-    child.write({
-      type: "control_request",
-      request_id: `init-${id}`,
-      request: {
-        subtype: "initialize",
-        sdkMcpServers: ["ohmygame"],
-        hooks: { PreToolUse: [{ hookCallbackIds: ["ohmygame-policy"] }] },
-      },
-    });
-  });
-}
-
-/** OpenCode v2's structured /api/model catalog. */
-export function parseOpenCodeModels(output: unknown): Array<{
-  id: string;
-  name: string;
-  variants: string[];
-  contextWindow?: number;
-}> {
-  if (!Array.isArray(output))
-    throw new Error("OpenCode did not return a readable model catalog");
-  return output.flatMap((value) => {
-    if (!value || typeof value !== "object") return [];
-    const item = value as Record<string, unknown>;
-    const capabilities = item.capabilities as { tools?: unknown } | undefined;
-    if (
-      typeof item.id !== "string" ||
-      typeof item.providerID !== "string" ||
-      item.enabled !== true ||
-      capabilities?.tools !== true ||
-      item.status === "deprecated"
-    )
-      return [];
-    const context = (item.limit as { context?: unknown } | undefined)?.context;
-    return [
-      {
-        id: `${item.providerID}/${item.id}`,
-        name: typeof item.name === "string" ? item.name : item.id,
-        variants: Array.isArray(item.variants)
-          ? item.variants.flatMap((v) =>
-              v && typeof v === "object" && typeof v.id === "string"
-                ? [v.id]
-                : [],
-            )
-          : [],
-        ...(typeof context === "number" && context > 0
-          ? { contextWindow: context }
-          : {}),
-      },
-    ];
-  });
 }
 
 /** A private folder for one probe or session, removed with it. */

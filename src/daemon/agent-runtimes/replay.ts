@@ -80,7 +80,15 @@ export function replayNativeMessages<Message>(
   return replayed;
 }
 
+/** Names for conversations that already ran on CLIs this app no longer starts. */
+const REMOVED_AGENT_NAMES: Readonly<Record<string, string>> = {
+  "claude-code-cli": "Claude Code",
+  "codex-cli": "Codex",
+  "opencode-cli": "OpenCode",
+};
+
 function agentName(provider: unknown): string {
+  if (typeof provider === "string" && REMOVED_AGENT_NAMES[provider]) return REMOVED_AGENT_NAMES[provider];
   return isAgentRuntimeId(provider)
     ? (findAgentRuntimeDefinition(provider)?.name ?? "The coding agent")
     : "The coding agent";
