@@ -16,7 +16,7 @@ desktop lifecycle and native game windows; shared modules define contracts.
 | Agent, chat, and model requests  | `src/daemon/agent.ts`, `src/daemon/pi-agent.ts`, `src/daemon/session-images.ts`, `src/renderer/agent-timeline.tsx`, `src/renderer/image-viewer.tsx` | [Runtime](runtime.md), [agent errors](agent-errors.md), [image history](model-image-history.md)                         | `test/agent.test.ts`, `test/agent-errors.test.ts`, `test/session-images.test.ts`                                                    |
 | Design and Asset Canvas          | `src/daemon/canvas-workspace.ts`, `src/daemon/canvas-routes.ts`, `src/renderer/canvas-workspace.tsx`, `src/renderer/design-document-panel.tsx`, `src/renderer/asset-canvas-nodes.tsx`, `src/shared/canvas-workspace.ts`        | [Canvas file contract](canvas-agent.md)                                                                                 | `test/canvas-api.test.ts`, `test/asset-canvas-document.test.ts`, `test/canvas-table.test.ts`                                        |
 | Preview and game use             | `src/daemon/preview.ts`, `src/daemon/preview-proxy.ts`, `src/desktop/web-game-player.ts`, `src/desktop/game-recorder.ts`, `src/desktop/playtest-driver.ts`, `src/daemon/playtest-tools.ts`, `src/daemon/plugin-game-runtime.ts` | [Preview lifecycle](preview-runtime.md), [service recovery](runtime-recovery.md), [game use](runtime.md#agent-game-use), [plugin game runtimes](runtime.md#plugin-game-runtimes) | `test/preview.test.ts`, `test/web-game-player.test.ts`, `test/playtest-driver.test.ts`, `test/playtest-tools.test.ts`, `test/plugin-game-runtime.test.ts` |
-| Coding agents (Claude Code, Codex, OpenCode) | `src/daemon/agent-runtimes/`, `src/renderer/coding-agents-settings.tsx`, `src/renderer/approval-card.tsx`, `src/shared/agent-runtimes.ts` | [Coding agents](coding-agents.md)                                                                                         | `test/agent-runtime-session.test.ts`, `test/agent-runtime-drivers.test.ts`, `test/agent-runtime-routes.test.ts`                    |
+| Pi agent and plugin coding agents | `src/daemon/agent.ts`, `src/daemon/agent-runtimes/`, `src/renderer/coding-agents-settings.tsx`, `src/shared/agent-runtimes.ts` | [Runtime](runtime.md), [Coding agents](coding-agents.md) | `test/agent-runtime-session.test.ts`, `test/agent-runtime-routes.test.ts` |
 | External agents (OhMyGame as an MCP server) | `src/daemon/external-mcp.ts`, `src/desktop/external-mcp-launcher.ts`, `src/renderer/external-agents-settings.tsx` | [External agents](external-agents.md) | `test/external-mcp.test.ts`, `test/external-mcp-launcher.test.ts`, `test/external-agents-settings-ui.test.tsx` |
 | Providers and media              | `src/daemon/provider-model-settings.ts`, `src/daemon/provider-settings-routes.ts`, `src/daemon/provider-models3d.ts`, `src/daemon/cloud-models.ts`, `src/renderer/provider-models.tsx`  | [Custom models](custom-models.md), [3D workflows](3d-providers.md), [free cloud models](free-cloud-models.md)           | `test/provider-model-settings.test.ts`, `test/model3d-workflows.test.ts`, `test/cloud-models.test.ts`                               |
 | Audio providers                  | `src/shared/audio.ts`, `src/shared/audio-legacy.ts`, `src/daemon/audio-generation.ts`, `src/daemon/doubao-speech-provider.ts`, `src/daemon/volcengine-tts-provider.ts`, `src/daemon/volcengine-seed-audio-provider.ts`, `src/daemon/elevenlabs-audio-provider.ts`, `src/daemon/canvas-workspace.ts` | [Audio providers](audio-providers.md) | `test/volcengine-tts-provider.test.ts`, `test/volcengine-tts-settings.test.ts`, `test/volcengine-seed-audio-provider.test.ts`, `test/volcengine-seed-audio-settings.test.ts`, `test/elevenlabs-audio-provider.test.ts`, `test/tools.test.ts`, `test/game-design.test.ts`, `test/canvas-migration.test.ts` |
@@ -81,10 +81,10 @@ session files in chunks, decoding a line whole only when its first bytes show
 it may hold usage, counting a response copied into a branch once, and reading
 files again only from where they grew. OhMyGame's agent counts the usage
 each assistant message recorded. A coding agent's stored messages repeat the
-latest request's usage for the context meter, so its tokens come from separate
-`ohmygame-native-usage` entries that the drivers write once per request (Codex,
-OpenCode) or turn (Claude Code); conversations from before those entries count
-only time. A turn's time runs from the person's message to the agent's last
+latest request's usage for the context meter. Conversations that already ran on
+Claude Code, Codex, or OpenCode still count tokens from the `ohmygame-native-usage`
+entries those drivers wrote; this build does not start those CLIs. Conversations
+from before those entries count only time. A turn's time runs from the person's message to the agent's last
 message or usage entry for it, counting each pause as at most 15 minutes;
 renames and setting changes don't extend it. Title and media generation are
 not in conversations. Summaries live in `src/shared/usage-stats.ts`, the page in
@@ -94,12 +94,12 @@ the suites are `test/usage-stats.test.ts` and `test/usage-settings-ui.test.tsx`.
 | Document                                         | Purpose                                                                                                                        |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
 | [runtime.md](runtime.md)                         | Process boundaries, toolchains, proxies, trust boundary, game use, persistence, and publishing.                                |
-| [agent-runtimes.md](agent-runtimes.md) | Native runtime architecture, accepted design decisions, and validation boundaries. |
+| [agent-runtimes.md](agent-runtimes.md) | Pi runs conversations. Plugins can add agents. The three CLIs are not built in. |
 | [preview-runtime.md](preview-runtime.md)         | Startup modes, dependency installation, leases, browser storage, and diagnostics.                                              |
 | [runtime-recovery.md](runtime-recovery.md)       | Preview isolation, daemon supervision, reconnect behavior, and recovery scenarios.                                             |
 | [google-playground-multiplayer.md](google-playground-multiplayer.md) | Google Playground 风格的回合制与实时多人游戏发布、房间、账号和部署方案。 |
 | [canvas-agent.md](canvas-agent.md)               | Canvas files, concurrent editing, agent tools and media.                                                                       |
-| [coding-agents.md](coding-agents.md)             | Coding agent CLIs: discovery, sessions, tools, approvals, isolation, and adding an agent.                                      |
+| [coding-agents.md](coding-agents.md)             | Pi is the conversation agent. Plugin agents use ACP. Claude Code, Codex, and OpenCode are not included. |
 | [external-agents.md](external-agents.md)         | OhMyGame as an MCP server for Claude Code, Codex, and other external agents: setup, launcher, tools, and contract.            |
 | [plugins.md](plugins.md)                         | Plugins: manifest, project file, extension hosts, pages, releases, connections, and bundled workflows. |
 | [plugin-security.md](plugin-security.md) | Plugin security model: panel sandbox, native code trust, approvals, publishers, credentials, and known gaps. |

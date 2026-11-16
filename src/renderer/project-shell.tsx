@@ -385,7 +385,7 @@ export function ProjectShell({
   const accountRuntime = isAccountRuntimeId(state.settings.model?.provider) ? state.settings.model.provider : undefined;
   const storedProfileId = accountRuntime ? state.settings.accountProfiles?.[accountRuntime] ?? "system" : "system";
   const selectedProfileId = accountProfiles.length && !accountProfiles.some((profile) => profile.id === storedProfileId) ? "system" : storedProfileId;
-  const modelCatalog = useAgentModels({ agentRuntimes: true, accountProfiles: state.conversation ? { "claude-code-cli": state.settings.accountProfiles?.["claude-code-cli"] ?? "system", "codex-cli": state.settings.accountProfiles?.["codex-cli"] ?? "system" } : undefined });
+  const modelCatalog = useAgentModels({ agentRuntimes: true });
   useEffect(() => {
     setAccountProfiles([]);
     if (!accountRuntime) return;

@@ -44,8 +44,8 @@ Older builds and release notes are on [Releases](https://github.com/WhiteTowerAI
 The Windows build isn't code-signed yet, so SmartScreen may warn on first install.
 Intel Mac and Linux are [on the roadmap](https://github.com/WhiteTowerAI/ohmygame/issues).
 
-OhMyGame ships without a model. On first launch, connect a provider or a
-coding agent you already use: [first run](https://ohmygame.ai/docs/first-run/).
+OhMyGame ships without a model. On first launch, connect a provider:
+[first run](https://ohmygame.ai/docs/first-run/).
 
 ## Features
 
@@ -62,10 +62,10 @@ coding agent you already use: [first run](https://ohmygame.ai/docs/first-run/).
   Godot, Unity, Unreal Engine, Blender, Aseprite, Tiled, and platforms like
   WeChat and Douyin Mini Games. Or
   [make your own](https://ohmygame.ai/docs/plugins/make/).
-- **Bring your own agent.** Run OhMyGame on Claude Code, Codex, or OpenCode, or
-  on any of 40+ model providers with your own keys. No per-run credits. It
-  works the other way too: use the canvas, media generation, and playtesting
-  from your agent over MCP. [Models](https://ohmygame.ai/docs/models/) ·
+- **Bring your own model.** Connect any of 40+ model providers with your own
+  keys. No per-run credits. The conversation agent is Pi. You can also use the
+  canvas, media generation, and playtesting from another agent over MCP.
+  [Models](https://ohmygame.ai/docs/models/) ·
   [External agents](docs/external-agents.md)
 
 ## What you can make

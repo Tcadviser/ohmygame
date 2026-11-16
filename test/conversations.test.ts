@@ -137,9 +137,7 @@ describe("ConversationManager", () => {
     expect(branch.getHeader()?.parentSession).toBe(created.sessionPath);
     expect(branch.getBranch().filter((entry) => entry.type === "message")).toHaveLength(2);
     expect(JSON.stringify(branch.getBranch())).not.toContain("Later question");
-    for (const runtime of ["claude-code-cli", "codex-cli", "opencode-cli"] as const) {
-      expect(latestNativeSession(branch.getBranch(), runtime)).toBeUndefined();
-    }
+    expect(latestNativeSession(branch.getBranch(), "agent.acme.demo.helper")).toBeUndefined();
     expect(await conversations.planState(project, source)).toEqual({ mode: "awaiting_approval", plan });
     expect(await conversations.planState(project, branched)).toEqual({ mode: "normal" });
     appendCompletedTurn(branch, "Independent question", "Independent answer");
@@ -218,31 +216,6 @@ describe("ConversationManager", () => {
     expect(await conversations.planState(project, created)).toEqual({ mode: "awaiting_approval", plan });
   });
 
-  it("retains independent runtime selections and defaults an unselected runtime to system", async () => {
-    const project = await createProject(), conversations = new ConversationManager();
-    const chat = await conversations.create(project);
-    expect(await conversations.accountProfileId(project, chat, "claude-code-cli")).toBe("system");
-    conversations.setAccountProfile(project, chat, "claude-code-cli", "work");
-    conversations.setAccountProfile(project, chat, "codex-cli", "work");
-    conversations.setAccountProfile(project, chat, "claude-code-cli", "personal");
-    expect(await conversations.accountProfiles(project, chat)).toEqual({"claude-code-cli":"personal","codex-cli":"work"});
-  });
-
-  it("keeps the chosen account when editing a message leaves that choice on another branch", async () => {
-    const project = await createProject(), conversations = new ConversationManager();
-    const chat = await conversations.create(project);
-    const session = conversations.open(project, chat);
-    session.appendMessage({ role: "user", content: "Question", timestamp: Date.now() } as never);
-    const edited = session.getLeafId()!;
-    session.appendMessage({ role: "assistant", content: [{ type: "text", text: "You've hit your limit" }], stopReason: "stop", timestamp: Date.now() } as never);
-    conversations.setAccountProfile(project, chat, "claude-code-cli", "work");
-    conversations.setAccountProfile(project, chat, "claude-code-cli", "personal");
-    session.branch(edited);
-    session.appendCustomEntry("ohmygame-user-prompt", {});
-    const reread = (await new ConversationManager().get(project, chat.summary.id))!;
-    expect(await new ConversationManager().accountProfileId(project, reread, "claude-code-cli")).toBe("personal");
-  });
-
   it("brings the last native reasoning level along when moving back past it", async () => {
     const project = await createProject(), conversations = new ConversationManager();
     const chat = await conversations.create(project);
@@ -285,34 +258,6 @@ describe("ConversationManager", () => {
     session.branch(kept);
     carrySettings(session, left);
     expect(session.buildSessionContext().model).toEqual({ provider: "fixture", modelId: "a" });
-  });
-
-  it("falls back from deleted accounts after restart and when restoring an old branch", async () => {
-    const project = await createProject();
-    let removed = false;
-    const resolve = (_runtime: unknown, id: string) => removed && id === "work" ? "system" : id;
-    const conversations = new ConversationManager(undefined, resolve);
-    const chat = await conversations.create(project);
-    const manager = conversations.open(project, chat);
-    appendCompletedTurn(manager, "Hello", "Shared history");
-    conversations.setAccountProfile(project, chat, "codex-cli", "work");
-    manager.appendCustomEntry("ohmygame-native-session", { version: 2, runtime: "codex-cli", profileId: "work", state: "ready", sessionId: "work-thread" });
-    const oldLeaf = manager.getLeafId()!;
-    expect(latestNativeSession(manager.getBranch(), "codex-cli", "work")?.sessionId).toBe("work-thread");
-    removed = true;
-    const reopened = new ConversationManager(undefined, resolve);
-    const stored = (await reopened.get(project, chat.summary.id))!;
-    const restored = reopened.open(project, stored);
-    const entries = restored.getBranch().length;
-    expect(await reopened.accountProfileId(project, stored, "codex-cli")).toBe("system");
-    // Reading the fallback writes nothing; the deleted account's marker no longer matches.
-    expect(restored.getBranch()).toHaveLength(entries);
-    expect(latestNativeSession(restored.getBranch(), "codex-cli", "system")).toBeUndefined();
-    restored.branch(oldLeaf);
-    restored.appendCustomEntry("restored-branch", {});
-    expect(await reopened.accountProfileId(project, stored, "codex-cli")).toBe("system");
-    expect(latestNativeSession(restored.getBranch(), "codex-cli", "system")).toBeUndefined();
-    expect(restored.getBranch().filter((entry) => entry.type === "message")).toHaveLength(2);
   });
 
   it("reports the latest response's speed, cache hits and context until it is compacted", async () => {

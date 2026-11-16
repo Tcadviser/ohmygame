@@ -1096,7 +1096,7 @@ describe("first-run screens", () => {
 
 describe("three-step setup with coding agents", () => {
   const nativeModel = {
-    provider: "codex-cli",
+    provider: "agent.acme.demo.helper",
     providerName: "Codex",
     id: "native-test",
     name: "Native model",
@@ -1104,13 +1104,13 @@ describe("three-step setup with coding agents", () => {
     nativeReasoningLevels: ["low", "balanced-custom"],
   } satisfies AgentModelCatalog["models"][number];
   const codex = {
-    id: "codex-cli",
+    id: "agent.acme.demo.helper",
     name: "Codex",
     enabled: false,
     installed: true,
     auth: { status: "signed-in", billing: "subscription" },
     autoContinue: true,
-    permissionMode: ":workspace",
+    permissionMode: "default",
     diagnostics: [],
   } satisfies import("../src/shared/agent-runtimes.js").AgentRuntimeStatus;
 
@@ -1151,7 +1151,7 @@ describe("three-step setup with coding agents", () => {
     expect(button("Next").disabled).toBe(true);
     expect(container.querySelector('[aria-label="Default model"]')).toBeNull();
     await chooseAgent("Codex");
-    expect(api.updateAgentRuntime).toHaveBeenCalledWith("codex-cli", {
+    expect(api.updateAgentRuntime).toHaveBeenCalledWith("agent.acme.demo.helper", {
       enabled: true,
     });
     expect(api.updateAgentDefaults).not.toHaveBeenCalled();
@@ -1268,14 +1268,14 @@ describe("three-step setup with coding agents", () => {
       await chooseAgent("Codex");
       expect(container.textContent).toContain("codex login");
       expect(api.updateAgentRuntime).toHaveBeenCalledExactlyOnceWith(
-        "codex-cli",
+        "agent.acme.demo.helper",
         { enabled: true },
       );
       await act(async () => {
         if (completion === "focus") window.dispatchEvent(new Event("focus"));
         else button("Check again").click();
       });
-      expect(api.recheckAgentRuntime).toHaveBeenCalledWith("codex-cli");
+      expect(api.recheckAgentRuntime).toHaveBeenCalledWith("agent.acme.demo.helper");
       expect(agentButton("Codex").getAttribute("aria-pressed")).toBe("true");
       expect(container.textContent).not.toContain("codex login");
       expect(button("Next").disabled).toBe(false);
@@ -1518,12 +1518,12 @@ describe("three-step setup with coding agents", () => {
       "noopener,noreferrer",
     );
     await act(async () => button("Check again").click());
-    expect(api.recheckAgentRuntime).toHaveBeenCalledWith("codex-cli");
+    expect(api.recheckAgentRuntime).toHaveBeenCalledWith("agent.acme.demo.helper");
     expect(
       container.querySelector(".onboarding-agent-install-actions"),
     ).toBeNull();
     expect(api.updateAgentRuntime).toHaveBeenCalledExactlyOnceWith(
-      "codex-cli",
+      "agent.acme.demo.helper",
       { enabled: true },
     );
     expect(button("Next").disabled).toBe(false);
@@ -1542,7 +1542,7 @@ describe("three-step setup with coding agents", () => {
         .mockResolvedValueOnce({
           ...catalog,
           models: [builtIn],
-          loadingRuntimes: ["codex-cli"],
+          loadingRuntimes: ["agent.acme.demo.helper"],
         })
         .mockResolvedValue({
           ...catalog,
@@ -1613,11 +1613,11 @@ describe("built-in agent", () => {
     };
     api.listModels.mockResolvedValue({
       ...catalog,
-      defaultModel: { provider: "codex-cli", id: "native" },
+      defaultModel: { provider: "agent.acme.demo.helper", id: "native" },
       models: [
         builtIn,
         {
-          provider: "codex-cli",
+          provider: "agent.acme.demo.helper",
           id: "native",
           providerName: "Codex",
           name: "Native",
@@ -1661,12 +1661,12 @@ describe("onboarding interactions", () => {
     });
     api.listAgentRuntimes.mockResolvedValue([
       {
-        id: "codex-cli",
+        id: "agent.acme.demo.helper",
         name: "Codex",
         enabled: false,
         installed: false,
         auth: { status: "unknown" },
-        permissionMode: ":workspace",
+        permissionMode: "default",
         diagnostics: [],
       },
     ]);

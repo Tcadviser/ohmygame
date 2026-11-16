@@ -8,11 +8,9 @@ import {
   isAgentPermissionMode,
   isAgentRuntimeId,
   fullAccessPermissionMode,
-  isBuiltInAgentRuntimeId,
   type AgentPermissionMode,
   type AgentRuntimeId,
   type AgentAccountProfile,
-  type BuiltInAgentRuntimeId,
 } from "../../shared/agent-runtimes.js";
 
 /** Conversation defaults live here; Pi's defaults also serve one-off generation. */
@@ -37,33 +35,20 @@ function defaults(id: AgentRuntimeId): AgentRuntimeSettings {
 }
 
 /**
- * The CLI's mode for OhMyGame's former "standard", which ran each agent in
- * its usual mode. "full" was each agent's mode that asks nothing.
- */
-const STANDARD_PERMISSION_MODES = {
-  "claude-code-cli": "acceptEdits",
-  "codex-cli": ":workspace",
-  "opencode-cli": "default",
-} as const satisfies Record<BuiltInAgentRuntimeId, AgentPermissionMode>;
-
-/**
  * Version 1 saved the former default, "standard", whenever any setting was
- * saved, so it cannot tell a choice from the default. When agents' own
- * permission modes replaced OhMyGame's and asking nothing became the
- * default, those files move to it; a later choice is kept.
+ * saved, so it cannot tell a choice from the default. Asking nothing is the
+ * default for a plugin agent.
  */
 // compat: since beta.5.0, remove from beta.7 and 2026-11-28. Version 1 used OhMyGame's own two permission modes.
 const SETTINGS_VERSION = 2;
 
-/** A saved mode in the CLI's own words; OhMyGame's former two modes become the CLI's. */
+/** A saved mode in the agent's own words. An unknown mode asks nothing. */
 function storedPermissionMode(
   id: AgentRuntimeId,
   value: unknown,
-  legacy: boolean,
+  _legacy: boolean,
 ): AgentPermissionMode {
   if (isAgentPermissionMode(id, value)) return value;
-  if (value === "standard" && !legacy && isBuiltInAgentRuntimeId(id))
-    return STANDARD_PERMISSION_MODES[id];
   return fullAccessPermissionMode(id);
 }
 

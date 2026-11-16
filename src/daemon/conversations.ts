@@ -1,5 +1,5 @@
 import { mapConcurrent } from "./map-concurrent.js";
-import { isAccountRuntimeId, type AccountRuntimeId, type AccountProfileIds } from "../shared/agent-runtimes.js";
+import { type AccountRuntimeId, type AccountProfileIds } from "../shared/agent-runtimes.js";
 import path from "node:path";
 import { mkdir, readdir, rename, rm } from "node:fs/promises";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
@@ -272,15 +272,8 @@ export class ConversationManager {
    * Native resume markers carry their account, so a context of another or a
    * deleted account is never resumed and this read changes nothing.
    */
-  async accountProfiles(project: ProjectState, stored: StoredConversation): Promise<AccountProfileIds> {
-    const profiles: AccountProfileIds = {};
-    for (const entry of (await this.view(project, stored)).getEntries()) {
-      if (entry.type !== "custom" || entry.customType !== "ohmygame-account-profile") continue;
-      const data = entry.data as { version?: unknown; runtime?: unknown; profileId?: unknown } | undefined;
-      if (data?.version === 1 && isAccountRuntimeId(data.runtime) && typeof data.profileId === "string")
-        profiles[data.runtime] = this.resolveProfileId(data.runtime, data.profileId);
-    }
-    return profiles;
+  async accountProfiles(_project: ProjectState, _stored: StoredConversation): Promise<AccountProfileIds> {
+    return {};
   }
 
   async accountProfileId(project: ProjectState, stored: StoredConversation, runtime: AccountRuntimeId): Promise<string> {

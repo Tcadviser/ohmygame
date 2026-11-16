@@ -1,4 +1,3 @@
-import { CodexImageProvider } from "./agent-runtimes/codex-image-provider.js";
 import { inspectPreviewConfiguration } from "./preview-configuration.js";
 import { CheckpointConflictError, CheckpointStore } from "./checkpoints.js";
 import { GameTuning, GameTuningError } from "./game-tuning.js";
@@ -57,7 +56,7 @@ import { skillFolders } from "./agent-runtimes/skills.js";
 import { appendSystemPromptForProject } from "./agent-prompts.js";
 import { LocalMultiplayerRuntime } from "./local-multiplayer.js";
 import { moveLocalGameServices, moveWorkspaceMultiplayer, readWorkspaceMultiplayer } from "./multiplayer-workspace.js";
-import { ACCOUNT_RUNTIME_IDS, isAccountRuntimeId, isAccountProfileIds, isAgentRuntimeId, nativeEffort, type AgentRuntimeId, type AnswerApprovalRequest } from "../shared/agent-runtimes.js";
+import { isAccountRuntimeId, isAccountProfileIds, isAgentRuntimeId, nativeEffort, type AgentRuntimeId, type AnswerApprovalRequest } from "../shared/agent-runtimes.js";
 import { ConversationManager, sessionDirectory, type StoredConversation } from "./conversations.js";
 import { ConversationImageStore } from "./conversation-images.js";
 import { OwnedPlaytestDriver } from "./owned-playtest.js";
@@ -795,9 +794,7 @@ export function createApp(options: AppOptions = {}) {
   const providerEnabled = (id: string) => id === "hyper3d" || id === "cloud-hyper3d"
     ? providerModelSettings.isEnabled("hyper3d") && providerModelSettings.isEnabled("cloud-hyper3d")
     : providerModelSettings.isEnabled(id);
-  const codexImages = new CodexImageProvider(path.join(dataDirectory, "agent-runtimes"), (recheck) => agentRuntimes.codexImageConnection(recheck));
   const providerImages = new ProviderImages(getModelRuntime, options.imageFetch, () => seedanceSettings.key("volcengine-ark"), providerEnabled, {
-    codexImages,
     openAIConnection: () => imageConnection.resolve(),
     customProviders: () => providerModelSettings.customProviderCatalog(),
     migrateLegacyModels: (id, models) => providerModelSettings.migrateLegacyImageModels(id, models, async () => { await (await getModelRuntime()).refresh({ allowNetwork: false, providers: [id] }); }),
@@ -3307,7 +3304,6 @@ export function createApp(options: AppOptions = {}) {
     let profiles: unknown = {};
     try { profiles = request.query.profiles ? JSON.parse(request.query.profiles) : {}; } catch { return reply.code(400).send({ error: "Invalid account profile selections" }); }
     if (!isAccountProfileIds(profiles)) return reply.code(400).send({ error: "Invalid account profile selections" });
-    for (const runtime of ACCOUNT_RUNTIME_IDS) if (profiles[runtime]) profiles[runtime] = agentRuntimes.settings.resolveProfileId(runtime, profiles[runtime]);
     const runtime = await getModelRuntime();
     const loadingProviders = catalogRefresh.schedule(runtime);
     const available = resolveModels(runtime, (await runtime.getAvailable()).filter((model) => providerEnabled(model.provider)));
@@ -3464,8 +3460,7 @@ export function createApp(options: AppOptions = {}) {
     // the background and serve the last known snapshot so opening Settings does
     // not wait on the cloud service.
     void cloudModels.refresh();
-    const codex = codexImages.summarySnapshot(providerEnabled("codex-cli"));
-    return [...providers, ...directProviders, codex, ...cloudModels.providersSnapshot(providerEnabled)].sort((left, right) => left.name.localeCompare(right.name));
+    return [...providers, ...directProviders, ...cloudModels.providersSnapshot(providerEnabled)].sort((left, right) => left.name.localeCompare(right.name));
   };
   app.get<{ Querystring: { locale?: string } }>("/settings/providers", (request) => providerSummaries(request.query.locale === "zh-CN" ? "zh-CN" : "en"));
   registerUsageRoutes(app, usageIndex, () => providerSummaries());
@@ -3495,7 +3490,6 @@ export function createApp(options: AppOptions = {}) {
       return { providers, agents, plugins: installed, projects: projectTypes };
     },
   });
-  app.post("/settings/models/providers/codex-cli/images/recheck", async () => codexImages.recheck(providerEnabled("codex-cli")));
   registerOpenAIImageRoutes(app, openAIImages, imageConnection, options.modelDiscoveryFetch);
   app.get("/settings/onboarding", async () => {
     if (!onboarding.initialized) {
@@ -3824,7 +3818,7 @@ export function createApp(options: AppOptions = {}) {
 
   app.put<{ Params: { projectId: string; conversationId: string }; Body: { runtime: string; profileId: string } }>(
     "/projects/:projectId/conversations/:conversationId/account-profile",
-    { schema: { body: { type: "object", additionalProperties: false, required: ["runtime", "profileId"], properties: { runtime: { enum: ACCOUNT_RUNTIME_IDS }, profileId: { type: "string", minLength: 1, maxLength: 80 } } } } },
+    { schema: { body: { type: "object", additionalProperties: false, required: ["runtime", "profileId"], properties: { runtime: { type: "string", minLength: 1, maxLength: 80 }, profileId: { type: "string", minLength: 1, maxLength: 80 } } } } },
     async (request, reply) => {
       const project = projects.get(request.params.projectId);
       if (!project) return reply.code(404).send({ error: "Project not found" });
@@ -4705,7 +4699,6 @@ export function createApp(options: AppOptions = {}) {
     await pluginServicesReady;
     catalogRefresh.close();
     await externalMcp.close();
-    codexImages.close();
     await projectNaming.close();
     await pluginMcpHost.close();
     await pluginDevelopment.close();

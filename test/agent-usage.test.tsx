@@ -140,7 +140,7 @@ it("lists every account with its 5-hour share and a ring per window, and shows a
     });
     const onChange = vi.fn();
     // The weekly window comes first, as a report may list it; the 5-hour share still leads.
-    await act(async () => root.render(<AgentAccountMenu runtime="claude-code-cli" value="system" disabled={false} onChange={onChange} onRefresh={async () => {}}
+    await act(async () => root.render(<AgentAccountMenu runtime="agent.acme.demo.helper" value="system" disabled={false} onChange={onChange} onRefresh={async () => {}}
       profiles={[profile("system", "System", "me@example.com", [window_(10080, 2, 9840), window_(300, 17, 286)]), profile("b", "B", "b@example.com", [window_(300, 46, 146), window_(10080, 100, 3960)])]} />));
     const trigger = container.querySelector<HTMLButtonElement>(".agent-account-trigger")!;
     expect(trigger.textContent).toBe("Default17%");

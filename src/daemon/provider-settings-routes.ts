@@ -120,7 +120,7 @@ export function registerProviderSettingsRoutes(app: FastifyInstance, options: Pr
     const provider = (await providerSummaries()).find((item) => item.id === request.params.providerId);
     if (!provider) return reply.code(404).send({ error: "Provider not found" });
     const hyper3d = provider.id === "hyper3d" || provider.id === "cloud-hyper3d";
-    if (!provider.configured && provider.id !== "codex-cli" && !hyper3d && !("managed" in provider && provider.managed)) return reply.code(400).send({ error: "Connect the provider before enabling it" });
+    if (!provider.configured && !hyper3d && !("managed" in provider && provider.managed)) return reply.code(400).send({ error: "Connect the provider before enabling it" });
     await providerModelSettings.setEnabled(hyper3d ? ["hyper3d", "cloud-hyper3d"] : provider.id, request.body.enabled);
     catalogRefresh.invalidate(provider.id);
     return { ...provider, enabled: request.body.enabled };

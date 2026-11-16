@@ -48,7 +48,7 @@ import {
   type AuthProbe,
 } from "./discovery.js";
 import { agentEnvironment, loginShellPath, systemConfigDirectory } from "./environment.js";
-import { AgentProcess, stopAgentProcesses } from "./process.js";
+import { stopAgentProcesses } from "./process.js";
 import {
   recoverAgentProcesses,
   recoverAgentDirectories,
@@ -57,26 +57,6 @@ import { NativeCodingSession, type NativeDriver } from "./native-session.js";
 import { ToolBridge } from "./tool-bridge.js";
 import type { DriverContext, HttpBridgeHandlers, SaveGeneratedImage } from "./driver-context.js";
 import { AgentRuntimeSettingsStore } from "./settings.js";
-import { ClaudeCodeDriver } from "./claude-code.js";
-import { CodexAppServer } from "./codex-app-server.js";
-import { CodexDriver } from "./codex.js";
-import { codexServerIdentity } from "./codex-server-pool.js";
-import { OpenCodeDriver } from "./opencode.js";
-
-/**
- * The client name Claude Code reports for OhMyGame's conversations. Run with
- * `-p`, it otherwise reports the generic `sdk-cli`, which subscriptions count
- * against the 5-hour limit about twice as fast for the same work
- * (anthropics/claude-code#97074). OhMyGame's own name, rather than another
- * client's, keeps the report accurate. Off the `sdk-*` names Claude Code also
- * offers its claude.ai Artifact tools; turning them off keeps the tools the
- * session had under `sdk-cli`.
- * Sign-in and model checks keep the CLI's default: they send no model requests.
- */
-const CLAUDE_CLIENT_ENV = {
-  CLAUDE_CODE_ENTRYPOINT: "ohmygame",
-  CLAUDE_CODE_DISABLE_ARTIFACT: "1",
-};
 
 const STATUS_TTL_MS = 60_000;
 
@@ -99,7 +79,6 @@ async function withinModelsWait<T>(load: Promise<T>): Promise<T | undefined> {
     }),
   ]).finally(() => clearTimeout(timer));
 }
-const LOGIN_TIMEOUT_MS = 10 * 60_000;
 const LIMITS_VERSION = 2;
 
 interface ProbeCache {
@@ -258,19 +237,6 @@ export class AgentRuntimeService {
     return !!findAgentRuntimeDefinition(id);
   }
 
-  /** Media can use Codex's sign-in without enabling it as a conversation agent. */
-  async codexImageConnection(recheck = false) {
-    const binary = await resolveBinary("codex-cli", this.settings.get("codex-cli").binaryPath, recheck);
-    if (!binary) return undefined;
-    const probe = await this.#probe("codex-cli", binary, recheck, "system");
-    return {
-      ...binary,
-      env: await this.#environment("codex-cli", binary.path, "system"),
-      auth: probe?.auth,
-      error: probe?.requirementError?.message,
-    };
-  }
-
   async status(
     id: AgentRuntimeId,
     recheck = false,
@@ -294,7 +260,6 @@ export class AgentRuntimeService {
       ...(definition.acp ? { plugin: definition.acp.plugin, launch: commandLine([settings.binaryPath ?? definition.binaries[0]!, ...definition.acp.args]) } : {}),
       enabled: settings.enabled,
       autoContinue: settings.autoContinue,
-      ...(id === "claude-code-cli" ? { identifyAsOhMyGame: settings.identifyAsOhMyGame } : {}),
       permissionMode: settings.permissionMode,
       ...(isAccountRuntimeId(id) ? { defaultProfileId: settings.defaultProfileId ?? "system" } : {}),
       ...(settings.binaryPath
@@ -374,8 +339,8 @@ export class AgentRuntimeService {
       throw new Error(
         "Choose the program itself (.exe); Windows command scripts cannot be started directly",
       );
-    if (request.identifyAsOhMyGame !== undefined && id !== "claude-code-cli")
-      throw new Error("This setting is only available for Claude Code");
+    if (request.identifyAsOhMyGame !== undefined)
+      throw new Error("This setting is no longer available");
     if (request.defaultProfileId !== undefined && (!isAccountRuntimeId(id) || !this.settings.profiles(id).some((profile) => profile.id === request.defaultProfileId)))
       throw new Error("Choose an existing account configuration");
     await this.settings.update(id, {
@@ -449,72 +414,9 @@ export class AgentRuntimeService {
     await mkdir(this.#root, { recursive: true, mode: 0o700 });
     const cacheKey = this.#key(id, loginProfileId);
     await this.#logins.get(cacheKey)?.();
+    this.#logins.delete(cacheKey);
     if (this.#changing.has(`${id}:${loginProfileId}`)) throw new Error("Account configuration is being changed");
-    const forget = () => {
-      if (!this.#changing.has(`${id}:${loginProfileId}`)) this.#invalidate(id, loginProfileId);
-      this.#logins.delete(cacheKey);
-    };
-    const loginCommand = signInCommand(id, binary.path, env);
-    if (id === "codex-cli") {
-      const server = new CodexAppServer(binary.path, this.#root, env, {
-        notification: (method) => {
-          if (method !== "account/login/completed") return;
-          forget();
-          void server.stop();
-        },
-      });
-      const stopLogin = () => server.stop();
-      this.#logins.set(cacheKey, stopLogin);
-      setTimeout(() => {
-        if (this.#logins.get(cacheKey) === stopLogin) { forget(); void server.stop(); }
-      }, LOGIN_TIMEOUT_MS).unref();
-      try {
-        await server.initialize();
-        const started = await server.request<{ authUrl?: unknown }>(
-          "account/login/start",
-          { type: "chatgpt" },
-        );
-        return typeof started.authUrl === "string"
-          ? { url: started.authUrl }
-          : { command: loginCommand };
-      } catch (cause) {
-        forget();
-        await server.stop();
-        throw cause;
-      }
-    }
-    if (id === "claude-code-cli") {
-      return new Promise((resolve) => {
-        let found = false;
-        const child = new AgentProcess({
-          binaryPath: binary.path,
-          args: ["auth", "login", "--claudeai"],
-          cwd: this.#root,
-          env,
-          onLine: (line) => {
-            const url = line.match(/https:\/\/\S+/)?.[0];
-            if (!url || found) return;
-            found = true;
-            resolve({ url });
-          },
-          onExit: () => {
-            forget();
-            if (!found) resolve({ command: loginCommand });
-          },
-        });
-        this.#logins.set(cacheKey, () => child.stop());
-        setTimeout(() => {
-          if (!found) {
-            found = true;
-            resolve({ command: loginCommand });
-          }
-        }, 15_000).unref();
-        setTimeout(() => {
-          void child.stop();
-        }, LOGIN_TIMEOUT_MS).unref();
-      });
-    }
-    return { command: loginCommand };
+    return { command: signInCommand(id, binary.path, env) };
   }
 
   async createSession(
@@ -573,18 +475,6 @@ export class AgentRuntimeService {
       ...(pluginTool ? [pluginTool.tool] : []),
     ]);
     const env = await this.#environment(request.runtime, binary.path, request.profileId);
-    if (request.runtime === "claude-code-cli" && settings.identifyAsOhMyGame)
-      Object.assign(env, CLAUDE_CLIENT_ENV);
-    // Codex conversations with the same executable, environment and Skills share one app server.
-    const codexServer =
-      request.runtime === "codex-cli"
-        ? await codexServerIdentity(
-            this.#root,
-            binary.path,
-            env,
-            request.skillDirectories,
-          )
-        : undefined;
     const revoke = new Set<() => void>();
     const context = (
       resume: string | undefined,
@@ -600,7 +490,6 @@ export class AgentRuntimeService {
       bridge,
       saveGeneratedImage: request.saveGeneratedImage,
       permissionMode: settings.permissionMode,
-      ...(codexServer ? { codexServer } : {}),
       skillDirectories: request.skillDirectories,
       httpBridge: async (handlers) => {
         const registered = this.#registerBridge(bridge, handlers);
@@ -630,19 +519,14 @@ export class AgentRuntimeService {
         current.model,
         current.reasoningLevel,
       );
-      if (request.runtime === "claude-code-cli")
-        return new ClaudeCodeDriver(driverContext);
-      if (request.runtime === "codex-cli")
-        return new CodexDriver(driverContext);
-      if (definition.acp)
-        return new AcpDriver(driverContext, {
-          name: definition.name,
-          args: definition.acp.args,
-          ...(definition.loginCommand
-            ? { loginCommand: definition.loginCommand }
-            : {}),
-        });
-      return new OpenCodeDriver(driverContext);
+      if (!definition.acp) throw new Error(`${definition.name} is not available`);
+      return new AcpDriver(driverContext, {
+        name: definition.name,
+        args: definition.acp.args,
+        ...(definition.loginCommand
+          ? { loginCommand: definition.loginCommand }
+          : {}),
+      });
     };
     return new NativeCodingSession({
       runtime: request.runtime,
@@ -803,8 +687,6 @@ export class AgentRuntimeService {
     try {
       if (!configDirectory) {
         await mkdir(directory, { recursive: true, mode: 0o700 });
-        // A managed Codex home gets its own file-backed sign-in; do not edit imported configurations.
-        if (runtime === "codex-cli") await writeFile(path.join(directory, "config.toml"), 'cli_auth_credentials_store = "file"\n', { mode: 0o600, flag: "wx" });
       }
       return await this.settings.addProfile(runtime, name, directory, !configDirectory);
     } catch (cause) {
@@ -937,7 +819,7 @@ export class AgentRuntimeService {
   async #profileEnvironment(
     id: AgentRuntimeId,
     binaryPath: string,
-    configDirectory?: string,
+    _configDirectory?: string,
   ): Promise<Record<string, string>> {
     const env = agentEnvironment(
       id,
@@ -946,26 +828,18 @@ export class AgentRuntimeService {
       process.env,
       await loginShellPath(),
     );
-    if (configDirectory) {
-      if (id === "claude-code-cli") {
-        delete env.CLAUDE_CODE_OAUTH_TOKEN;
-        env.CLAUDE_CONFIG_DIR = configDirectory;
-      } else if (id === "codex-cli") env.CODEX_HOME = configDirectory;
-    }
     return env;
   }
 
   /**
    * Signs a managed configuration out with its CLI before its directory goes.
-   * Claude keeps a macOS sign-in in a Keychain entry keyed to the directory,
-   * which removing the directory would leave behind. A missing CLI or a failed
-   * sign-out does not keep the directory.
+   * A missing CLI or a failed sign-out does not keep the directory.
    */
   async #signOut(id: AccountRuntimeId, configDirectory: string): Promise<void> {
     const binary = await resolveBinary(id, this.settings.get(id).binaryPath).catch(() => undefined);
     if (!binary) return;
     const env = await this.#profileEnvironment(id, binary.path, configDirectory);
-    await runCli(binary.path, id === "claude-code-cli" ? ["auth", "logout"] : ["logout"], env, this.#root).catch(() => undefined);
+    await runCli(binary.path, ["logout"], env, this.#root).catch(() => undefined);
   }
 
   async #probe(
@@ -1161,27 +1035,15 @@ function commandLine(parts: readonly string[]): string {
   return parts.map((part) => /^[\w@%+=:,./-]+$/.test(part) ? part : JSON.stringify(part)).join(" ");
 }
 
-function signInCommand(id: AgentRuntimeId, binaryPath: string, env: Record<string, string>): string {
-  const variable = id === "claude-code-cli" ? "CLAUDE_CONFIG_DIR" : id === "codex-cli" ? "CODEX_HOME" : undefined;
-  if (!variable) {
-    const definition = agentRuntimeDefinition(id);
-    // An agent that names no sign-in command signs in when it runs on its own.
-    return (
-      definition.loginCommand ??
-      (process.platform === "win32"
-        ? `& '${binaryPath.replaceAll("'", "''")}'`
-        : `'${binaryPath.replaceAll("'", "'\\''")}'`)
-    );
-  }
-  const directory = env[variable];
-  const args = id === "codex-cli" ? "login" : "auth login";
-  if (process.platform === "win32") {
-    const run = `& '${binaryPath.replaceAll("'", "''")}' ${args}`;
-    // Assigning $null removes the variable, without an error when it is absent.
-    return `$env:${variable} = ${directory ? `'${directory.replaceAll("'", "''")}'` : "$null"}; ${run}`;
-  }
-  const run = `'${binaryPath.replaceAll("'", "'\\''")}' ${args}`;
-  return directory ? `${variable}='${directory.replaceAll("'", "'\\''")}' ${run}` : `env -u ${variable} ${run}`;
+function signInCommand(id: AgentRuntimeId, binaryPath: string, _env: Record<string, string>): string {
+  const definition = agentRuntimeDefinition(id);
+  // An agent that names no sign-in command signs in when it runs on its own.
+  return (
+    definition.loginCommand ??
+    (process.platform === "win32"
+      ? `& '${binaryPath.replaceAll("'", "''")}'`
+      : `'${binaryPath.replaceAll("'", "'\\''")}'`)
+  );
 }
 
 function isUsageLimit(value: unknown): value is AgentUsageLimit {

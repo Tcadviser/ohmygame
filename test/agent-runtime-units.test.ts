@@ -2,166 +2,19 @@ import { SessionManager, defineTool } from "@earendil-works/pi-coding-agent";
 import os from "node:os";
 import path from "node:path";
 import { Type } from "typebox";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { agentEnvironment } from "../src/daemon/agent-runtimes/environment.js";
 import {
   parseVersion,
   compareVersions,
+  setPluginAgentDefinitions,
   versionAtLeast,
 } from "../src/daemon/agent-runtimes/definitions.js";
-import {
-  parseOpenCodeModels,
-  resolveBinary,
-} from "../src/daemon/agent-runtimes/discovery.js";
+import { resolveBinary } from "../src/daemon/agent-runtimes/discovery.js";
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { handoffSummary } from "../src/daemon/agent-runtimes/handoff.js";
 import { ToolBridge } from "../src/daemon/agent-runtimes/tool-bridge.js";
-import { piToolCall } from "../src/daemon/agent-runtimes/driver-context.js";
-import {
-  claudeAlways,
-  claudeAnswer,
-  claudeToolCall,
-} from "../src/daemon/agent-runtimes/claude-code.js";
-import {
-  codexAnswer,
-  codexApproval,
-} from "../src/daemon/agent-runtimes/codex.js";
-import {
-  openCodeToolCall,
-  splitModel,
-} from "../src/daemon/agent-runtimes/opencode.js";
-
-describe("Claude Code's own permission suggestions", () => {
-  const suggestions = [
-    {
-      type: "addRules",
-      rules: [{ toolName: "Bash", ruleContent: "npm run build:*" }],
-      behavior: "allow",
-      destination: "localSettings",
-    },
-    {
-      type: "addDirectories",
-      directories: ["/Users/me/assets"],
-      destination: "session",
-    },
-  ];
-
-  it("offers always allowing what Claude Code suggests, saved when it saves any of it", () => {
-    expect(claudeAlways(suggestions)).toEqual({
-      scope: "saved",
-      rules: ["Bash(npm run build:*)", "/Users/me/assets"],
-    });
-    expect(claudeAlways([suggestions[1]!])).toEqual({
-      scope: "session",
-      rules: ["/Users/me/assets"],
-    });
-    expect(claudeAlways([])).toBeUndefined();
-    // Suggestions to deny or ask are not something to offer the person.
-    expect(
-      claudeAlways([{ ...suggestions[0]!, behavior: "deny" }]),
-    ).toBeUndefined();
-  });
-
-  it("returns its suggestions when the person always allows, and nothing extra otherwise", () => {
-    const input = { command: "npm run build" };
-    expect(claudeAnswer("allow-always", input, suggestions)).toEqual({
-      behavior: "allow",
-      updatedInput: input,
-      updatedPermissions: suggestions,
-      decisionClassification: "user_permanent",
-    });
-    expect(claudeAnswer("allow", input, suggestions)).toEqual({
-      behavior: "allow",
-      updatedInput: input,
-      decisionClassification: "user_temporary",
-    });
-    expect(claudeAnswer("deny", input, suggestions)).toMatchObject({
-      behavior: "deny",
-      decisionClassification: "user_reject",
-    });
-  });
-});
-
-describe("Codex's own approvals", () => {
-  it("shows a command request and saves Codex's proposed rule when always allowed", () => {
-    const params = {
-      itemId: "item-1",
-      command: "/bin/zsh -lc 'npm install three'",
-      reason: "Needs the network",
-      proposedExecpolicyAmendment: ["npm", "install"],
-    };
-    expect(
-      codexApproval("item/commandExecution/requestApproval", params),
-    ).toEqual({
-      kind: "command",
-      tool: "shell",
-      command: "npm install three",
-      reason: "Needs the network",
-      always: { scope: "saved", rules: ["npm install"] },
-    });
-    expect(
-      codexAnswer("item/commandExecution/requestApproval", params, "allow-always"),
-    ).toEqual({
-      decision: {
-        acceptWithExecpolicyAmendment: {
-          execpolicy_amendment: ["npm", "install"],
-        },
-      },
-    });
-    expect(
-      codexAnswer("item/commandExecution/requestApproval", params, "allow"),
-    ).toEqual({ decision: "accept" });
-    expect(
-      codexAnswer("item/commandExecution/requestApproval", params, "deny"),
-    ).toEqual({ decision: "decline" });
-  });
-
-  it("allows for the session when Codex proposes no rule", () => {
-    const params = { command: "make" };
-    expect(
-      codexApproval("item/commandExecution/requestApproval", params)?.always,
-    ).toEqual({ scope: "session", rules: [] });
-    expect(
-      codexAnswer("item/commandExecution/requestApproval", params, "allow-always"),
-    ).toEqual({ decision: "acceptForSession" });
-    expect(
-      codexAnswer("item/fileChange/requestApproval", {}, "allow-always"),
-    ).toEqual({ decision: "acceptForSession" });
-    expect(
-      codexAnswer("execCommandApproval", params, "allow-always"),
-    ).toEqual({ decision: "approved_for_session" });
-  });
-
-  it("grants exactly what a permission request names, for the turn or the session", () => {
-    const permissions = {
-      fileSystem: { read: ["/Users/me/assets"], write: null },
-      network: { enabled: true },
-    };
-    expect(
-      codexApproval("item/permissions/requestApproval", { permissions }),
-    ).toEqual({
-      kind: "other",
-      tool: "permissions",
-      paths: [{ path: "/Users/me/assets", access: "read" }],
-      network: true,
-      always: { scope: "session", rules: [] },
-    });
-    expect(
-      codexAnswer("item/permissions/requestApproval", { permissions }, "allow"),
-    ).toEqual({ permissions, scope: "turn" });
-    expect(
-      codexAnswer(
-        "item/permissions/requestApproval",
-        { permissions },
-        "allow-always",
-      ),
-    ).toEqual({ permissions, scope: "session" });
-    expect(
-      codexAnswer("item/permissions/requestApproval", { permissions }, "deny"),
-    ).toEqual({ permissions: {}, scope: "turn" });
-    expect(codexApproval("item/tool/call", {})).toBeUndefined();
-  });
-});
+import { pluginAgentRuntimeId } from "../src/shared/agent-runtimes.js";
 
 describe("conversation handoff", () => {
   it("summarizes what was said and touched, without the private context of each message", () => {
@@ -524,45 +377,19 @@ describe("OhMyGame tool bridge", () => {
   });
 });
 
-describe("coding agent tool names", () => {
-  it("shows every agent's file and shell tools as Pi's, and OhMyGame's tools by their own names", () => {
-    expect(
-      claudeToolCall("Bash", { command: "ls", description: "List" }),
-    ).toEqual({ name: "bash", args: { command: "ls", description: "List" } });
-    expect(
-      claudeToolCall("Edit", {
-        file_path: "a.ts",
-        old_string: "x",
-        new_string: "y",
-      }),
-    ).toEqual({ name: "edit", args: { path: "a.ts" } });
-    expect(
-      claudeToolCall("mcp__ohmygame__generate_image", { prompt: "cat" }),
-    ).toEqual({ name: "generate_image", args: { prompt: "cat" } });
-    expect(openCodeToolCall("ohmygame_canvas_check", {})).toEqual({
-      name: "canvas_check",
-      args: {},
-    });
-    expect(openCodeToolCall("read", { filePath: "a.ts" })).toEqual({
-      name: "read",
-      args: { path: "a.ts" },
-    });
-    expect(piToolCall("WebFetch", { url: "https://x" })).toEqual({
-      name: "WebFetch",
-      args: { url: "https://x" },
-    });
-    expect(splitModel("anthropic/claude-sonnet-5")).toEqual([
-      "anthropic",
-      "claude-sonnet-5",
-    ]);
-    expect(splitModel("openrouter/vendor/model")).toEqual([
-      "openrouter",
-      "vendor/model",
-    ]);
-  });
-});
+const discoveryAgent = pluginAgentRuntimeId("acme/demo", "helper");
 
 describe("coding agent discovery", () => {
+  beforeEach(() => {
+    setPluginAgentDefinitions([{
+      id: discoveryAgent,
+      name: "Helper",
+      binaries: ["opencode"],
+      versionArgs: ["--version"],
+      acp: { plugin: "acme/demo", args: [] },
+    }]);
+  });
+  afterEach(() => setPluginAgentDefinitions([]));
   // Windows starts only .exe programs, so it cannot run these script stand-ins, and
   // discovery ignores them there (see docs/agent-runtimes.md).
   it.skipIf(process.platform === "win32")("uses the newest of several installations, unless one was chosen", async () => {
@@ -584,8 +411,8 @@ describe("coding agent discovery", () => {
       previous,
     ].join(path.delimiter);
     try {
-      expect((await resolveBinary("opencode-cli"))?.path).toBe(newer);
-      expect((await resolveBinary("opencode-cli", older))?.path).toBe(older);
+      expect((await resolveBinary(discoveryAgent))?.path).toBe(newer);
+      expect((await resolveBinary(discoveryAgent, older))?.path).toBe(older);
     } finally {
       process.env.PATH = previous;
       await rm(root, { recursive: true, force: true });
@@ -614,11 +441,11 @@ describe("coding agent discovery", () => {
       .concat(previous ?? "")
       .join(path.delimiter);
     try {
-      expect((await resolveBinary("opencode-cli"))?.path).toBe(stable);
+      expect((await resolveBinary(discoveryAgent))?.path).toBe(stable);
       await writeFile(flag, "ready");
-      expect((await resolveBinary("opencode-cli"))?.path).toBe(transient);
+      expect((await resolveBinary(discoveryAgent))?.path).toBe(transient);
       await rm(flag);
-      expect((await resolveBinary("opencode-cli", undefined, true))?.path).toBe(
+      expect((await resolveBinary(discoveryAgent, undefined, true))?.path).toBe(
         stable,
       );
       expect(
@@ -644,63 +471,9 @@ describe("coding agent discovery", () => {
     expect(versionAtLeast("2.0.0", "2.0.0")).toBe(true);
   });
 
-  it("lists OpenCode's tool-calling models with their variants", () => {
-    const output = [
-      {
-        providerID: "opencode",
-        id: "big-pickle",
-        name: "Big Pickle",
-        enabled: true,
-        capabilities: { tools: true },
-        variants: [{ id: "low" }, { id: "high" }],
-        limit: { context: 200000 },
-      },
-      {
-        providerID: "openai",
-        id: "text-only",
-        enabled: true,
-        capabilities: { tools: false },
-      },
-      {
-        providerID: "anthropic",
-        id: "claude-sonnet-5",
-        name: "Claude Sonnet 5",
-        enabled: true,
-        capabilities: { tools: true },
-      },
-      {
-        providerID: "x",
-        id: "disabled",
-        enabled: false,
-        capabilities: { tools: true },
-      },
-      {
-        providerID: "x",
-        id: "old",
-        enabled: true,
-        status: "deprecated",
-        capabilities: { tools: true },
-      },
-      { id: "broken" },
-    ];
-    expect(parseOpenCodeModels(output)).toEqual([
-      {
-        id: "opencode/big-pickle",
-        name: "Big Pickle",
-        variants: ["low", "high"],
-        contextWindow: 200000,
-      },
-      {
-        id: "anthropic/claude-sonnet-5",
-        name: "Claude Sonnet 5",
-        variants: [],
-      },
-    ]);
-  });
-
   it("builds a CLI's environment from an allowlist, without API keys or the daemon's settings", () => {
     const env = agentEnvironment(
-      "claude-code-cli",
+      discoveryAgent,
       "/opt/tools/bin/claude",
       {},
       {
@@ -712,9 +485,6 @@ describe("coding agent discovery", () => {
         OPENAI_API_KEY: "sk-openai",
         OHMYGAME_DAEMON_TOKEN: "secret",
         CLAUDE_CODE_OAUTH_TOKEN: "subscription",
-        CLAUDE_CONFIG_DIR: "/home/me/.claude-work",
-        CODEX_HOME: "/home/me/.codex",
-        OPENCODE_CONFIG_DIR: "/home/me/opencode",
         HTTPS_PROXY: "http://proxy",
       },
     );
@@ -723,48 +493,12 @@ describe("coding agent discovery", () => {
       HOME: "/home/me",
       LANG: "en_US.UTF-8",
       LC_ALL: "en_US.UTF-8",
-      CLAUDE_CODE_OAUTH_TOKEN: "subscription",
       HTTPS_PROXY: "http://proxy",
     });
     expect(env).not.toHaveProperty("ANTHROPIC_API_KEY");
     expect(env).not.toHaveProperty("OPENAI_API_KEY");
     expect(env).not.toHaveProperty("OHMYGAME_DAEMON_TOKEN");
-    // System default uses the CLI's default folder; the service names an account's folder itself.
-    expect(env).not.toHaveProperty("CLAUDE_CONFIG_DIR");
-    expect(
-      agentEnvironment("codex-cli", "/opt/bin/codex", {}, { CODEX_HOME: "/home/me/.codex-work" }),
-    ).not.toHaveProperty("CODEX_HOME");
-    // Another CLI's own folder is not this one's to see.
-    expect(env).not.toHaveProperty("CODEX_HOME");
-    expect(env).not.toHaveProperty("OPENCODE_CONFIG_DIR");
-    expect(
-      agentEnvironment(
-        "opencode-cli",
-        "/opt/bin/opencode",
-        {},
-        {
-          OPENCODE_CONFIG_DIR: "/home/me/opencode",
-          OPENCODE_CONFIG: "/home/me/opencode.json",
-          OPENCODE_CONFIG_CONTENT: "ignored",
-          OPENAI_API_KEY: "ignored",
-        },
-      ),
-    ).toMatchObject({
-      OPENCODE_CONFIG_DIR: "/home/me/opencode",
-      OPENCODE_CONFIG: "/home/me/opencode.json",
-    });
-    const nativeEnv = agentEnvironment(
-      "opencode-cli",
-      "/opt/bin/opencode",
-      {},
-      {
-        OPENCODE_CONFIG_CONTENT: "ignored",
-        OPENAI_API_KEY: "ignored",
-      },
-    );
-    expect(nativeEnv).not.toHaveProperty("OPENCODE_CONFIG_CONTENT");
-    expect(nativeEnv).not.toHaveProperty("OPENAI_API_KEY");
-    // An ohmygame-mcp launcher the CLI may start must not connect back to OhMyGame.
+    expect(env).not.toHaveProperty("CLAUDE_CODE_OAUTH_TOKEN");
     expect(env.OHMYGAME_EXTERNAL_MCP_DISABLED).toBe("1");
   });
 });
