@@ -116,7 +116,7 @@ function drawBooks(g: Phaser.GameObjects.Graphics, w: number, h: number): void {
   const count = 5;
   const each = h / count;
   for (let i = 0; i < count; i += 1) {
-    const inset = i % 2 === 0 ? w * 0.04 : w * 0.0;
+    const inset = i % 2 === 0 ? w * 0.04 : 0;
     const y = h * 0.5 - each * (i + 1);
     roundedRect(g, -w * 0.5 + inset, y + 2, w - inset * 2, each - 3, 3, colors[i % colors.length]);
     g.fillStyle(PALETTE.paper, 0.9);
