@@ -1,0 +1,26 @@
+{
+  "name": "paper-dart",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "simcheck": "tsx tools/simcheck.ts",
+    "logiccheck": "tsx tools/logiccheck.ts",
+    "check": "tsc --noEmit && tsx tools/logiccheck.ts && tsx tools/simcheck.ts"
+  },
+  "dependencies": {
+    "@fontsource-variable/fredoka": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}

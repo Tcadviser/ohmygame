@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "account": {
+    "issuer": "http://127.0.0.1:43139"
+  },
+  "cloud": {
+    "serverUrl": "http://127.0.0.1:43139/",
+    "gameId": "149c1c06-ed84-4532-8c03-a42ec55d0b92"
+  }
+}

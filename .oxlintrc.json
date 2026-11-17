@@ -1,7 +1,12 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   // The SDK's API report concatenates the declarations of several modules, so names repeat.
-  "ignorePatterns": ["packages/sdk/api/**"],
+  "ignorePatterns": [
+    "packages/sdk/api/**",
+    // Paper Dart vendors a generated SDK bundle and commits its downloaded web export.
+    "paper-dart/src/ohmygame/**",
+    "paper-dart/web/**"
+  ],
   "rules": {
     "no-unused-vars": [
       "error",
