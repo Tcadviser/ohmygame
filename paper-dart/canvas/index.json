@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "mainDocumentId": "paper-dart-design",
+  "boards": [
+    {
+      "id": "eb476112-60eb-4a11-ab55-66c527f67d3d",
+      "name": "Paper Dart"
+    }
+  ],
+  "documents": [
+    {
+      "id": "paper-dart-design",
+      "title": "Paper Dart — Main Design Document"
+    }
+  ]
+}

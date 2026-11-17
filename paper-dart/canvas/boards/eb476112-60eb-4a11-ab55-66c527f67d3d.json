@@ -1,0 +1,581 @@
+{
+  "version": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "nodes": [
+    {
+      "id": "design-doc",
+      "type": "document",
+      "data": {
+        "documentId": "paper-dart-design"
+      },
+      "title": "Paper Dart — Main Design Document",
+      "description": "Canonical design: player fantasy, core loop, rooms, controls, simulation model, visual direction, asset list and verification record."
+    },
+    {
+      "id": "art-direction",
+      "type": "text",
+      "data": {
+        "text": "PAPER DART — ART DIRECTION\n\nMaterial: handcrafted papercraft diorama. Everything is card stock: flat cut shapes, visible paper fibre, soft drop shadows, torn and creased edges, faint blueprint grid on walls. The dart is the only object with a real crease highlight.\n\nPalette: paper #F7F2E6, paper-2 #EADFC8, kraft #C08A4E, ink #22303F, ink-soft #5A6B7C, accent #E4572E (power/danger/cold draught), accent-2 #2A9D8F (updraft/success), gold #E9B949 (stars).\n\nTypography: Fredoka for display and buttons, IBM Plex Mono for distance/power/score readouts.\n\nMotion: springy paper, slight overshoot, 220-260 ms eases, numbers tick instead of slide.\n\nCamera: pure side view, dart flies left to right, gameplay band kept clear in the middle of every backdrop. Rooms are 7.5 m tall so a glide has altitude to spend.",
+        "instruction": "Use as the shared style reference when judging or extending any Paper Dart visual."
+      },
+      "title": "Art direction card",
+      "description": "Shared visual language every mockup, asset and piece of procedural art must follow."
+    },
+    {
+      "id": "shipped-note",
+      "type": "text",
+      "data": {
+        "text": "ASSET STATUS\n\nNo image or audio generation model was connected while this game was built, so both the art and the sound are produced in code:\n\n- Art: layered papercraft dioramas, props, the dart, pickups and vents are drawn with Phaser graphics and a procedural paper-fibre texture (src/render/*, src/theme.css).\n- Audio: every crease, whoosh, chime and the music loop are synthesised with WebAudio (src/game/audio.ts).\n\nThe generation nodes on this board keep their prompts, dimensions and shared style so they can be produced and swapped in once a provider is connected. They have no images yet, and nothing in the running game reads from assets/generated/.",
+        "instruction": "Read before promising or judging generated art for Paper Dart."
+      },
+      "title": "Asset status",
+      "description": "Why the shipped art and audio are procedural, and what is still pending."
+    },
+    {
+      "id": "g-game",
+      "type": "group",
+      "data": {
+        "name": "Game code"
+      },
+      "title": "Game code (state owner)",
+      "description": "Pure TypeScript simulation: no Phaser types. Verified by tools/logiccheck.ts and tools/simcheck.ts."
+    },
+    {
+      "id": "g-art-code",
+      "type": "group",
+      "data": {
+        "name": "Shipped art"
+      },
+      "title": "Shipped art (procedural papercraft)",
+      "description": "The code that draws the game's world, props, dart and UI surfaces."
+    },
+    {
+      "id": "g-audio-code",
+      "type": "group",
+      "data": {
+        "name": "Shipped audio"
+      },
+      "title": "Shipped audio (WebAudio synthesis)",
+      "description": "All sound effects and the music loop, generated at runtime."
+    },
+    {
+      "id": "g-pending",
+      "type": "group",
+      "data": {
+        "name": "Pending generated art"
+      },
+      "title": "Pending generated art (no model connected)",
+      "description": "Production art prompts, ready to generate and integrate when an image model is available."
+    },
+    {
+      "id": "g-pending-audio",
+      "type": "group",
+      "data": {
+        "name": "Pending generated audio"
+      },
+      "title": "Pending generated audio (no model connected)",
+      "description": "Sound and music prompts, ready to generate when an audio model is available."
+    },
+    {
+      "id": "g-mockups",
+      "type": "group",
+      "data": {
+        "name": "Reference mockups"
+      },
+      "title": "Reference mockups (pending)",
+      "description": "Key-screen mockup prompts for the visual direction. Not generated and not shipped."
+    },
+    {
+      "id": "file-flight",
+      "type": "file",
+      "data": {
+        "path": "src/game/flight.ts"
+      },
+      "parentId": "g-game",
+      "title": "flight.ts — dart physics",
+      "description": "Drag polar, stall, trim control, air vents and run outcomes."
+    },
+    {
+      "id": "file-rooms",
+      "type": "file",
+      "data": {
+        "path": "src/game/rooms.ts"
+      },
+      "parentId": "g-game",
+      "title": "rooms.ts — the four rooms",
+      "description": "Lengths, targets, props, air vents and pickups for each room."
+    },
+    {
+      "id": "file-fold",
+      "type": "file",
+      "data": {
+        "path": "src/game/fold.ts"
+      },
+      "parentId": "g-game",
+      "title": "fold.ts — folding steps and grading",
+      "description": "Five fold steps, crease geometry, per-step grading and the S/A/B/C fold grade."
+    },
+    {
+      "id": "file-score",
+      "type": "file",
+      "data": {
+        "path": "src/game/score.ts"
+      },
+      "parentId": "g-game",
+      "title": "score.ts — scoring and stars",
+      "description": "Distance, pickups, landing bonus and the grade multiplier."
+    },
+    {
+      "id": "file-save",
+      "type": "file",
+      "data": {
+        "path": "src/game/save.ts"
+      },
+      "parentId": "g-game",
+      "title": "save.ts — progress through the OhMyGame SDK",
+      "description": "game.storage for unlocks and records, game.leaderboard for best scores."
+    },
+    {
+      "id": "file-main",
+      "type": "file",
+      "data": {
+        "path": "src/main.ts"
+      },
+      "parentId": "g-game",
+      "title": "main.ts — flow and test bridge",
+      "description": "Boots the SDK and Phaser, owns the screen flow, and exposes the test-only playtest bridge."
+    },
+    {
+      "id": "file-backdrop",
+      "type": "file",
+      "data": {
+        "path": "src/render/backdrop.ts"
+      },
+      "parentId": "g-art-code",
+      "title": "backdrop.ts — room dioramas",
+      "description": "Four papercraft interiors plus the foreground parallax band."
+    },
+    {
+      "id": "file-dart",
+      "type": "file",
+      "data": {
+        "path": "src/render/dart.ts"
+      },
+      "parentId": "g-art-code",
+      "title": "dart.ts — dart and crumpled ball",
+      "description": "The creased side-view dart with its fluttering far wing, and the crash ball."
+    },
+    {
+      "id": "file-props",
+      "type": "file",
+      "data": {
+        "path": "src/render/props.ts"
+      },
+      "parentId": "g-art-code",
+      "title": "props.ts — obstacles",
+      "description": "Fan, lamp, books, mug, plant, banner and spotlight cut-outs."
+    },
+    {
+      "id": "file-paper",
+      "type": "file",
+      "data": {
+        "path": "src/render/paper.ts"
+      },
+      "parentId": "g-art-code",
+      "title": "paper.ts — papercraft drawing kit",
+      "description": "Procedural paper-fibre texture, shadows, cut-out polygons, torn edges and the blueprint grid."
+    },
+    {
+      "id": "file-foldscene",
+      "type": "file",
+      "data": {
+        "path": "src/scenes/FoldScene.ts"
+      },
+      "parentId": "g-art-code",
+      "title": "FoldScene.ts — the sheet being folded",
+      "description": "Renders the real fold geometry, the crease bead, the green band and the dart reveal."
+    },
+    {
+      "id": "file-flightscene",
+      "type": "file",
+      "data": {
+        "path": "src/scenes/FlightScene.ts"
+      },
+      "parentId": "g-art-code",
+      "title": "FlightScene.ts — the room in play",
+      "description": "Camera, vents, pickups, basket, hand, trail and the in-canvas world-space markers."
+    },
+    {
+      "id": "file-theme",
+      "type": "file",
+      "data": {
+        "path": "src/theme.css"
+      },
+      "parentId": "g-art-code",
+      "title": "theme.css — paper UI surfaces",
+      "description": "Palette variables, paper-card panels and buttons, HUD, room cards and responsive rules."
+    },
+    {
+      "id": "file-audio",
+      "type": "file",
+      "data": {
+        "path": "src/game/audio.ts"
+      },
+      "parentId": "g-audio-code",
+      "title": "audio.ts — synthesised sound",
+      "description": "Crease, launch, flutter bed, pickups, crumple, clear jingle and the generative music loop."
+    },
+    {
+      "id": "file-simcheck",
+      "type": "file",
+      "data": {
+        "path": "tools/simcheck.ts"
+      },
+      "parentId": "g-game",
+      "title": "simcheck.ts — room clearability sweep",
+      "description": "Sweeps launch angles, powers and 72 player-style tunings to confirm every room is clearable."
+    },
+    {
+      "id": "file-logiccheck",
+      "type": "file",
+      "data": {
+        "path": "tools/logiccheck.ts"
+      },
+      "parentId": "g-game",
+      "title": "logiccheck.ts — fold, score and save logic",
+      "description": "Grading, geometry, scoring, unlocking and run termination checks."
+    },
+    {
+      "id": "mock-title",
+      "type": "image",
+      "data": {
+        "prompt": "Game UI screen mockup for a cozy papercraft game titled PAPER DART. A hand-folded paper airplane dart flies across the upper middle over a warm papercut desk scene. Large rounded title plaque of cream card stock with an orange-red accent stripe under it, three stacked paper card buttons, a row of four small paper room cards with star stamps and small readouts along the bottom, a small monospace best-distance tag in the top right. Blueprint grid paper background, soft drop shadows, generous margins, clean uncluttered layout, placeholder text blocks. Handcrafted papercraft cut-out illustration style, layered card stock, visible paper fibre, deep ink-navy outlines, warm cream kraft and orange-red palette, soft diffused light, no photorealism, no watermark.",
+        "resolution": "1K",
+        "aspectRatio": "16:9",
+        "images": []
+      },
+      "parentId": "g-mockups",
+      "title": "Mockup prompt — title & room select",
+      "description": "Not generated (no image model connected). Direction for the title screen and room cards."
+    },
+    {
+      "id": "mock-fold",
+      "type": "image",
+      "data": {
+        "prompt": "Game UI screen mockup for the folding phase of a papercraft game. A single sheet of cream paper lies centered on a kraft wooden desk seen from above, a dashed navy fold line runs down the middle of the sheet with a green crease band marked near the end of the line, a paper cut-out finger indicator with a soft shadow rests mid-drag on the line, a small step counter tag sits in the top left, three paper stamp icons for fold grades in the top right, a wide rounded prompt strip at the bottom edge, blueprint grid desk mat, generous margins. Handcrafted papercraft cut-out illustration style, layered card stock, visible paper fibre, deep ink-navy outlines, warm cream kraft and orange-red palette, soft diffused light, no photorealism, no watermark.",
+        "resolution": "1K",
+        "aspectRatio": "16:9",
+        "images": []
+      },
+      "parentId": "g-mockups",
+      "title": "Mockup prompt — fold step screen",
+      "description": "Not generated (no image model connected). Direction for the folding phase: dashed fold line, crease band, step counter."
+    },
+    {
+      "id": "mock-flight",
+      "type": "image",
+      "data": {
+        "prompt": "In-game HUD mockup over a papercraft side-view room for a paper airplane game. A folded paper airplane dart in mid-glide in the center left with a soft drop shadow and paper motion streaks. A slim distance tape along the top with a small basket goal marker, a score tag and a paperclip counter in the top right, a small semicircular pitch-and-speed gauge in the bottom left, a round pause button in the top right corner. A desk fan, a stack of books and a mug as paper cut-outs along the bottom. Large empty band of wall in the middle so the dart stays readable. Handcrafted papercraft cut-out illustration style, layered card stock, visible paper fibre, deep ink-navy outlines, warm cream kraft and orange-red palette with teal accents, soft diffused light, clean uncluttered HUD, no photorealism, no watermark.",
+        "resolution": "1K",
+        "aspectRatio": "16:9",
+        "images": []
+      },
+      "parentId": "g-mockups",
+      "title": "Mockup prompt — flight HUD",
+      "description": "Not generated (no image model connected). Direction for the in-flight HUD over a papercraft room."
+    },
+    {
+      "id": "bg-nook",
+      "type": "image",
+      "data": {
+        "prompt": "Side-view papercraft diorama backdrop of a cozy kids desk nook. Wooden desk along the bottom with a pencil cup, stacked notebooks and a small potted plant, pinboard wall above with pinned paper notes, a window with papercut curtains on the left, warm afternoon light. Layered card stock cut-outs with soft drop shadows, deep navy outlines, cream kraft and orange-red palette with teal accents, empty plain wall band across the middle for gameplay, no characters, no text, no watermark.",
+        "resolution": "2K",
+        "aspectRatio": "16:9",
+        "images": []
+      },
+      "parentId": "g-pending",
+      "title": "Backdrop — Desk Nook (room 1)",
+      "description": "Not generated. Would replace the procedural nook diorama in src/render/backdrop.ts."
+    },
+    {
+      "id": "bg-study",
+      "type": "image",
+      "data": {
+        "prompt": "Side-view papercraft diorama backdrop of a tidy study room. Desk with a desk lamp and book stacks on the left, tall bookshelf with blank books on the right, round wall clock, hanging plant, radiator with paper streamers at the bottom, warm lamp glow. Layered card stock cut-outs with soft drop shadows, deep navy outlines, cream kraft navy palette with teal accents, empty plain wall band across the middle for gameplay, no characters, no text, no watermark.",
+        "resolution": "2K",
+        "aspectRatio": "16:9",
+        "images": []
+      },
+      "parentId": "g-pending",
+      "title": "Backdrop — Study (room 2)",
+      "description": "Not generated. Would replace the procedural study diorama."
+    },
+    {
+      "id": "bg-classroom",
+      "type": "image",
+      "data": {
+        "prompt": "Side-view papercraft diorama backdrop of a school classroom. Rows of desks along the bottom with pencil holders and blank notebooks, a chalkboard with faint chalk doodles, a blank world map poster, paper mobiles hanging from the ceiling, tall windows with light on the left. Layered card stock cut-outs with soft drop shadows, deep navy outlines, cream kraft and orange-red palette with teal accents, empty plain wall band across the middle for gameplay, no characters, no text, no watermark.",
+        "resolution": "2K",
+        "aspectRatio": "16:9",
+        "images": []
+      },
+      "parentId": "g-pending",
+      "title": "Backdrop — Classroom (room 3)",
+      "description": "Not generated. Would replace the procedural classroom diorama."
+    },
+    {
+      "id": "bg-auditorium",
+      "type": "image",
+      "data": {
+        "prompt": "Side-view papercraft diorama backdrop of a school auditorium hall. Long stage on the right with heavy paper curtains, rows of folded-paper chairs along the bottom, tall arched windows with paper light beams on the left, hanging paper banners, dust motes. Layered card stock cut-outs with soft drop shadows, deep navy outlines, warm cream kraft and deep navy palette with gold accents, empty plain wall band across the middle for gameplay, no characters, no text, no watermark.",
+        "resolution": "2K",
+        "aspectRatio": "16:9",
+        "images": []
+      },
+      "parentId": "g-pending",
+      "title": "Backdrop — Auditorium (room 4)",
+      "description": "Not generated. Would replace the procedural auditorium diorama."
+    },
+    {
+      "id": "paper-tex",
+      "type": "image",
+      "data": {
+        "prompt": "Seamless tileable close-up of cream card stock paper texture with subtle fibres, tiny speckles and a faint laid pattern, flat even lighting, no shadows, no objects, no text, no watermark, perfectly tileable pattern.",
+        "resolution": "1K",
+        "aspectRatio": "1:1",
+        "images": []
+      },
+      "parentId": "g-pending",
+      "title": "Paper texture — seamless",
+      "description": "Not generated. The runtime uses the procedural fibre texture in src/render/paper.ts instead."
+    },
+    {
+      "id": "dart",
+      "type": "image",
+      "data": {
+        "prompt": "A single classic paper airplane dart, the long pointed dart fold, seen exactly from the side, nose pointing to the right, crisp cream-white paper with a visible centre crease, subtle triangular fold shading, slight upward glide tilt. Isolated on a flat pure magenta background colour #FF00FF filling the whole frame, object fully inside the frame with a clear margin, no shadow cast on the background, no text, no watermark. Clean papercraft cut-out illustration, deep navy outline accents, soft diffused light.",
+        "resolution": "1K",
+        "aspectRatio": "1:1",
+        "images": []
+      },
+      "parentId": "g-pending",
+      "title": "Dart sprite — side view",
+      "description": "Not generated. src/render/dart.ts draws the dart in code instead."
+    },
+    {
+      "id": "dart-crumple",
+      "type": "image",
+      "data": {
+        "prompt": "A crumpled ball of cream notebook paper with sharp folded creases and torn corners, side view. Isolated on a flat pure magenta background colour #FF00FF filling the whole frame, object fully inside the frame with a clear margin, no shadow cast on the background, no text, no watermark. Clean papercraft cut-out illustration, deep navy outline accents, soft diffused light.",
+        "resolution": "1K",
+        "aspectRatio": "1:1",
+        "images": []
+      },
+      "parentId": "g-pending",
+      "title": "Crumpled dart — failure state",
+      "description": "Not generated. src/render/dart.ts draws the crumpled ball in code instead."
+    },
+    {
+      "id": "prop-fan",
+      "type": "image",
+      "data": {
+        "prompt": "A small retro desk fan made of papercraft: round wire guard, three curved blades, tilted on a low base, side view facing right. Isolated on a flat pure magenta background colour #FF00FF filling the whole frame, object fully inside the frame with a clear margin, no shadow cast on the background, no text, no watermark. Papercraft cut-out illustration, cream kraft and teal palette, deep navy outlines, soft diffused light.",
+        "resolution": "1K",
+        "aspectRatio": "1:1",
+        "images": []
+      },
+      "parentId": "g-pending",
+      "title": "Prop — desk fan (obstacle)",
+      "description": "Not generated. src/render/props.ts draws the fan in code instead."
+    },
+    {
+      "id": "prop-lamp",
+      "type": "image",
+      "data": {
+        "prompt": "A papercraft desk lamp with an angled conical shade, a curved arm and a round base, side view. Isolated on a flat pure magenta background colour #FF00FF filling the whole frame, object fully inside the frame with a clear margin, no shadow cast on the background, no text, no watermark. Papercraft cut-out illustration, cream kraft and orange-red palette, deep navy outlines, soft diffused light.",
+        "resolution": "1K",
+        "aspectRatio": "1:1",
+        "images": []
+      },
+      "parentId": "g-pending",
+      "title": "Prop — desk lamp (obstacle)",
+      "description": "Not generated. src/render/props.ts draws the lamp in code instead."
+    },
+    {
+      "id": "prop-books",
+      "type": "image",
+      "data": {
+        "prompt": "A neat stack of five hardcover books in papercraft style, side view, spines in cream, kraft, teal and orange-red with blank unprinted covers, one book slightly offset. Isolated on a flat pure magenta background colour #FF00FF filling the whole frame, object fully inside the frame with a clear margin, no shadow cast on the background, no text, no watermark. Papercraft cut-out illustration, deep navy outlines, soft diffused light.",
+        "resolution": "1K",
+        "aspectRatio": "1:1",
+        "images": []
+      },
+      "parentId": "g-pending",
+      "title": "Prop — book stack (obstacle)",
+      "description": "Not generated. src/render/props.ts draws the book stack in code instead."
+    },
+    {
+      "id": "prop-mug",
+      "type": "image",
+      "data": {
+        "prompt": "A papercraft ceramic mug with a small paper steam swirl, side view, cream body with a single orange-red stripe and a simple handle. Isolated on a flat pure magenta background colour #FF00FF filling the whole frame, object fully inside the frame with a clear margin, no shadow cast on the background, no text, no watermark. Papercraft cut-out illustration, deep navy outlines, soft diffused light.",
+        "resolution": "1K",
+        "aspectRatio": "1:1",
+        "images": []
+      },
+      "parentId": "g-pending",
+      "title": "Prop — mug (obstacle)",
+      "description": "Not generated. src/render/props.ts draws the mug in code instead."
+    },
+    {
+      "id": "prop-plant",
+      "type": "image",
+      "data": {
+        "prompt": "A papercraft potted plant: terracotta kraft pot with three broad cut-paper leaves on slender stems, side view. Isolated on a flat pure magenta background colour #FF00FF filling the whole frame, object fully inside the frame with a clear margin, no shadow cast on the background, no text, no watermark. Papercraft cut-out illustration, deep navy outlines, soft diffused light.",
+        "resolution": "1K",
+        "aspectRatio": "1:1",
+        "images": []
+      },
+      "parentId": "g-pending",
+      "title": "Prop — potted plant (obstacle)",
+      "description": "Not generated. src/render/props.ts draws the plant in code instead."
+    },
+    {
+      "id": "prop-basket",
+      "type": "image",
+      "data": {
+        "prompt": "A papercraft wastebasket: a kraft-brown folded paper bin with a visible open rim and one crumpled paper ball inside, side view, slightly wider at the top. Isolated on a flat pure magenta background colour #FF00FF filling the whole frame, object fully inside the frame with a clear margin, no shadow cast on the background, no text, no watermark. Papercraft cut-out illustration, deep navy outlines, soft diffused light, warm and inviting.",
+        "resolution": "1K",
+        "aspectRatio": "1:1",
+        "images": []
+      },
+      "parentId": "g-pending",
+      "title": "Prop — basket (room target)",
+      "description": "Not generated. FlightScene draws the basket, rim and floor spotlight in code instead."
+    },
+    {
+      "id": "item-clip",
+      "type": "image",
+      "data": {
+        "prompt": "A single golden paperclip, seen from the side at a slight angle, glossy gold foil papercraft illustration with a cream highlight edge. Isolated on a flat pure magenta background colour #FF00FF filling the whole frame, object fully inside the frame with a clear margin, no shadow cast on the background, no text, no watermark. Clean cut-out illustration, deep navy outline accents, soft diffused light.",
+        "resolution": "1K",
+        "aspectRatio": "1:1",
+        "images": []
+      },
+      "parentId": "g-pending",
+      "title": "Pickup — golden paperclip",
+      "description": "Not generated. FlightScene draws the paperclip in code instead."
+    },
+    {
+      "id": "item-star",
+      "type": "image",
+      "data": {
+        "prompt": "A gold foil star sticker with a cream paper border and one corner slightly curled, seen from the front. Isolated on a flat pure magenta background colour #FF00FF filling the whole frame, object fully inside the frame with a clear margin, no shadow cast on the background, no text, no watermark. Clean papercraft cut-out illustration, deep navy outline accents, soft diffused light.",
+        "resolution": "1K",
+        "aspectRatio": "1:1",
+        "images": []
+      },
+      "parentId": "g-pending",
+      "title": "Pickup — sticker star",
+      "description": "Not generated. FlightScene draws the sticker in code instead."
+    },
+    {
+      "id": "hand-launch",
+      "type": "image",
+      "data": {
+        "prompt": "A child's hand made of cut paper holding a folded paper airplane dart by its spine, seen from the side, arm entering from the left, dart nose pointing to the right. Cream paper hand with simple crease lines. Isolated on a flat pure magenta background colour #FF00FF filling the whole frame, object fully inside the frame with a clear margin, no shadow cast on the background, no text, no watermark. Papercraft cut-out illustration, deep navy outlines, soft diffused light.",
+        "resolution": "1K",
+        "aspectRatio": "1:1",
+        "images": []
+      },
+      "parentId": "g-pending",
+      "title": "Hand holding the dart (launch)",
+      "description": "Not generated. FlightScene draws a paper hand in code instead."
+    },
+    {
+      "id": "sfx-crease",
+      "type": "audio",
+      "data": {
+        "prompt": "Short crisp paper crease and fold snap, dry card stock, close microphone, no music, no reverb tail, sound effect.",
+        "durationSeconds": 0.6
+      },
+      "parentId": "g-pending-audio",
+      "title": "SFX prompt — paper crease",
+      "description": "Not generated. Synthesised in src/game/audio.ts instead."
+    },
+    {
+      "id": "sfx-launch",
+      "type": "audio",
+      "data": {
+        "prompt": "Quick paper whoosh as a folded paper airplane is thrown, airy flutter and a soft snap at the start, no music, sound effect.",
+        "durationSeconds": 1
+      },
+      "parentId": "g-pending-audio",
+      "title": "SFX prompt — launch whoosh",
+      "description": "Not generated. Synthesised in src/game/audio.ts instead."
+    },
+    {
+      "id": "sfx-flutter",
+      "type": "audio",
+      "data": {
+        "prompt": "Seamless loop of thin paper fluttering in fast airflow, gentle continuous flutter, steady level, no music, no voices, sound effect loop.",
+        "durationSeconds": 2.5,
+        "loop": true
+      },
+      "parentId": "g-pending-audio",
+      "title": "SFX prompt — flight flutter loop",
+      "description": "Not generated. Synthesised in src/game/audio.ts instead."
+    },
+    {
+      "id": "sfx-clip",
+      "type": "audio",
+      "data": {
+        "prompt": "Bright short papercraft pickup chime, two quick ascending notes with a light click, cheerful, no music bed, sound effect.",
+        "durationSeconds": 0.7
+      },
+      "parentId": "g-pending-audio",
+      "title": "SFX prompt — pickup chime",
+      "description": "Not generated. Synthesised in src/game/audio.ts instead."
+    },
+    {
+      "id": "sfx-crumple",
+      "type": "audio",
+      "data": {
+        "prompt": "Paper crumpling and being crushed into a ball, dry and crunchy, with a soft thud at the end, no music, sound effect.",
+        "durationSeconds": 1
+      },
+      "parentId": "g-pending-audio",
+      "title": "SFX prompt — crumple crash",
+      "description": "Not generated. Synthesised in src/game/audio.ts instead."
+    },
+    {
+      "id": "sfx-clear",
+      "type": "audio",
+      "data": {
+        "prompt": "Warm cheerful little victory jingle for a papercraft game, three ascending marimba and ukulele notes with a paper rustle, short, sound effect.",
+        "durationSeconds": 1.8
+      },
+      "parentId": "g-pending-audio",
+      "title": "SFX prompt — room cleared",
+      "description": "Not generated. Synthesised in src/game/audio.ts instead."
+    },
+    {
+      "id": "music-loop",
+      "type": "audio",
+      "data": {
+        "prompt": "Gentle looping instrumental track for a cozy papercraft game: soft ukulele and marimba plucks, brushed shaker, warm upright bass, light and playful, steady tempo, no vocals, seamless loop, 90 bpm.",
+        "durationSeconds": 30,
+        "loop": true,
+        "instrumental": true
+      },
+      "parentId": "g-pending-audio",
+      "title": "Music prompt — papercraft flight loop",
+      "description": "Not generated. A generative 90 bpm loop in src/game/audio.ts plays instead."
+    }
+  ],
+  "edges": [],
+  "id": "eb476112-60eb-4a11-ab55-66c527f67d3d"
+}

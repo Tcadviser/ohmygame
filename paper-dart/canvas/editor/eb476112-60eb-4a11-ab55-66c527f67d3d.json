@@ -1,0 +1,233 @@
+{
+  "version": 1,
+  "nodes": {
+    "design-doc": {
+      "x": 0,
+      "y": 0,
+      "width": 900,
+      "height": 900
+    },
+    "art-direction": {
+      "x": 960,
+      "y": 0,
+      "width": 540,
+      "height": 620
+    },
+    "shipped-note": {
+      "x": 960,
+      "y": 660,
+      "width": 540,
+      "height": 420
+    },
+    "g-game": {
+      "x": 0,
+      "y": 980,
+      "width": 1500,
+      "height": 620
+    },
+    "g-art-code": {
+      "x": 0,
+      "y": 1660,
+      "width": 2100,
+      "height": 620
+    },
+    "g-audio-code": {
+      "x": 0,
+      "y": 2340,
+      "width": 900,
+      "height": 400
+    },
+    "g-pending": {
+      "x": 0,
+      "y": 3480,
+      "width": 2600,
+      "height": 900
+    },
+    "g-pending-audio": {
+      "x": 0,
+      "y": 4440,
+      "width": 1800,
+      "height": 620
+    },
+    "g-mockups": {
+      "x": 0,
+      "y": 2800,
+      "width": 1500,
+      "height": 620
+    },
+    "file-flight": {
+      "x": 1520,
+      "y": 96
+    },
+    "file-rooms": {
+      "x": 1520,
+      "y": 576
+    },
+    "file-fold": {
+      "x": 1520,
+      "y": 1056
+    },
+    "file-score": {
+      "x": 2080,
+      "y": 96
+    },
+    "file-save": {
+      "x": 2080,
+      "y": 576
+    },
+    "file-main": {
+      "x": 2080,
+      "y": 1056
+    },
+    "file-backdrop": {
+      "x": 2640,
+      "y": 96
+    },
+    "file-dart": {
+      "x": 2640,
+      "y": 576
+    },
+    "file-props": {
+      "x": 2640,
+      "y": 1056
+    },
+    "file-paper": {
+      "x": 3200,
+      "y": 96
+    },
+    "file-foldscene": {
+      "x": 3200,
+      "y": 576
+    },
+    "file-flightscene": {
+      "x": 3200,
+      "y": 1056
+    },
+    "file-theme": {
+      "x": 3760,
+      "y": 96
+    },
+    "file-audio": {
+      "x": 3760,
+      "y": 576
+    },
+    "file-simcheck": {
+      "x": 3760,
+      "y": 1056
+    },
+    "file-logiccheck": {
+      "x": 4320,
+      "y": 96
+    },
+    "mock-title": {
+      "x": 4320,
+      "y": 576
+    },
+    "mock-fold": {
+      "x": 4320,
+      "y": 1056
+    },
+    "mock-flight": {
+      "x": 4880,
+      "y": 96
+    },
+    "bg-nook": {
+      "x": 4880,
+      "y": 576
+    },
+    "bg-study": {
+      "x": 4880,
+      "y": 1056
+    },
+    "bg-classroom": {
+      "x": 5440,
+      "y": 96
+    },
+    "bg-auditorium": {
+      "x": 5440,
+      "y": 576
+    },
+    "paper-tex": {
+      "x": 5440,
+      "y": 1056
+    },
+    "dart": {
+      "x": 6000,
+      "y": 96
+    },
+    "dart-crumple": {
+      "x": 6000,
+      "y": 576
+    },
+    "prop-fan": {
+      "x": 6000,
+      "y": 1056
+    },
+    "prop-lamp": {
+      "x": 6560,
+      "y": 96
+    },
+    "prop-books": {
+      "x": 6560,
+      "y": 576
+    },
+    "prop-mug": {
+      "x": 6560,
+      "y": 1056
+    },
+    "prop-plant": {
+      "x": 7120,
+      "y": 96
+    },
+    "prop-basket": {
+      "x": 7120,
+      "y": 576
+    },
+    "item-clip": {
+      "x": 7120,
+      "y": 1056
+    },
+    "item-star": {
+      "x": 7680,
+      "y": 96
+    },
+    "hand-launch": {
+      "x": 7680,
+      "y": 576
+    },
+    "sfx-crease": {
+      "x": 7680,
+      "y": 1056
+    },
+    "sfx-launch": {
+      "x": 8240,
+      "y": 96
+    },
+    "sfx-flutter": {
+      "x": 8240,
+      "y": 576
+    },
+    "sfx-clip": {
+      "x": 8240,
+      "y": 1056
+    },
+    "sfx-crumple": {
+      "x": 8800,
+      "y": 96
+    },
+    "sfx-clear": {
+      "x": 8800,
+      "y": 576
+    },
+    "music-loop": {
+      "x": 8800,
+      "y": 1056
+    }
+  },
+  "viewport": {
+    "x": 111,
+    "y": 91.36948051948053,
+    "zoom": 0.12132034632034631
+  },
+  "view": "canvas"
+}
